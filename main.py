@@ -3,6 +3,7 @@
 from enum import Enum
 import numpy as np
 from typing import List, Tuple
+import time
 
 
 class Color(Enum):
@@ -186,7 +187,7 @@ class Board:
         # For each permutation of rolls, work out possible board configurations by end of move
         move_tree = Tree("Possible moves (from, to):")
         for _ in range(0, num_permutations):
-            print(f"Permutation {_}, dice rolls {dice_rolls}")
+            # print(f"Permutation {_}, dice rolls {dice_rolls}")
             self.get_board_from_dice_roll(dice_rolls, 0, move_tree)
             dice_rolls.reverse()  # Only has effect if more than one permutation
 
@@ -319,10 +320,3 @@ if __name__ == '__main__':
     print(f"Dice rolls: {dice_rolls}")
     move_tree = b.get_possible_boards_from_dice(dice_rolls)
 
-    # print(move_tree)
-    # for c in move_tree.children:
-    #     print(f"\t{c.name}")
-    #     for cc in c.children:
-    #         print(f"\t\t{cc.name}")
-    print(f"Total nodes: {move_tree.get_total_nodes()}")
-    move_tree.print_tree()
