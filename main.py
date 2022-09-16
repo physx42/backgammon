@@ -27,6 +27,21 @@ class Tree(object):
         assert isinstance(node, Tree)
         self.children.append(node)
 
+    def print_tree(self, depth=0):
+        tabbing = "\t" * depth
+        print(f"{tabbing}{self.name}")
+        for child in self.children:
+            child.print_tree(depth + 1)
+
+    def get_total_nodes(self):
+        count = 0
+        if len(self.children) == 0:
+            count = 0
+        else:
+            for child in self.children:
+                count += 1 + child.get_total_nodes()
+        return count
+
 
 class Point:
     def __init__(self, index, num_pieces, colour, red_bar=False, white_bar=False):
@@ -169,8 +184,9 @@ class Board:
             num_permutations = 1
 
         # For each permutation of rolls, work out possible board configurations by end of move
-        move_tree = Tree("moves")
+        move_tree = Tree("Possible moves (from, to):")
         for _ in range(0, num_permutations):
+            print(f"Permutation {_}, dice rolls {dice_rolls}")
             self.get_board_from_dice_roll(dice_rolls, 0, move_tree)
             dice_rolls.reverse()  # Only has effect if more than one permutation
 
@@ -226,6 +242,8 @@ class Board:
                                 move_tree.add_child(Tree(new_move))
                                 # Try next roll
                                 self.get_board_from_dice_roll(dice_rolls, roll_depth + 1, move_tree.children[-1])
+
+        self.clear_provisional_moves(roll_depth)
 
     def get_point_move(self, point_index: int, roll_value: int, roll_depth: int, can_bear_off: bool):
         move_info = None
@@ -298,11 +316,13 @@ if __name__ == '__main__':
 
     b.choose_first_player()
     dice_rolls = b.roll_dice()
+    print(f"Dice rolls: {dice_rolls}")
     move_tree = b.get_possible_boards_from_dice(dice_rolls)
 
-    print(f"Dice rolls: {dice_rolls}")
-    print(move_tree)
-    for c in move_tree.children:
-        print(f"\t{c.name}")
-        for cc in c.children:
-            print(f"\t\t{cc.name}")
+    # print(move_tree)
+    # for c in move_tree.children:
+    #     print(f"\t{c.name}")
+    #     for cc in c.children:
+    #         print(f"\t\t{cc.name}")
+    print(f"Total nodes: {move_tree.get_total_nodes()}")
+    move_tree.print_tree()
