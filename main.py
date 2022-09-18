@@ -4,6 +4,7 @@ from enum import Enum
 import numpy as np
 from typing import List, Tuple
 import time
+import copy
 
 
 class Color(Enum):
@@ -28,6 +29,9 @@ class Tree(object):
         assert isinstance(node, Tree)
         self.children.append(node)
 
+    def count_children(self):
+        return len(self.children)
+
     def print_tree(self, depth=0):
         tabbing = "\t" * depth
         print(f"{tabbing}{self.name}")
@@ -42,6 +46,15 @@ class Tree(object):
             for child in self.children:
                 count += 1 + child.get_total_nodes()
         return count
+
+    def get_list_of_leaves(self):
+        if self.count_children() == 0:
+            leaves = [self.name]
+        else:
+            leaves = []
+            for child in self.children:
+                leaves = leaves + child.get_list_of_leaves()
+        return leaves
 
 
 class Point:
@@ -104,6 +117,25 @@ class Board:
         self.initialise_point(25, Color.Empty, num_pieces=0, white_bar=True)
         # Record current player
         self.current_player = Color.Empty
+        # Provisional board for move calculations
+        self.board_provisional = [copy.deepcopy(self.board)] * 4
+
+    def simple_board_representation(self, board_to_print=None, header=False):
+        if board_to_print is None:
+            board_to_print = self.board
+        if header:
+            for p in range(0, 26):
+                print(f" {p:03}", end="")
+            print("")
+        for p in board_to_print:
+            if p.colour == Color.Empty:
+                print(" 000", end="")
+            elif p.colour == Color.Red:
+                print(f" +{p.num_pieces:2}", end="")
+            else:
+                print(f" -{p.num_pieces:2}", end="")
+        print("")
+
 
     def choose_first_player(self):
         if np.random.rand() > 0.5:
@@ -176,7 +208,7 @@ class Board:
             rolls.append(roll)
         return rolls
 
-    def get_possible_boards_from_dice(self, dice_rolls: List[int]) -> Tree:
+    def get_possible_moves_from_dice(self, dice_rolls: List[int]) -> (Tree, Tree):
         # If only two dice values then could play two different permutations.
         # If four dice rolls then only one permutation.
         if len(dice_rolls) == 2:
@@ -186,18 +218,19 @@ class Board:
 
         # For each permutation of rolls, work out possible board configurations by end of move
         move_tree = Tree("Possible moves (from, to):")
+        board_tree = Tree("Possible boards")
         for _ in range(0, num_permutations):
             # print(f"Permutation {_}, dice rolls {dice_rolls}")
-            self.get_board_from_dice_roll(dice_rolls, 0, move_tree)
+            self.get_board_from_dice_roll(dice_rolls, 0, move_tree, board_tree)
             dice_rolls.reverse()  # Only has effect if more than one permutation
 
-        return move_tree
+        return move_tree, board_tree
 
-    def get_board_from_dice_roll(self, dice_rolls: List[int], roll_depth: int, move_tree: Tree):
+    def get_board_from_dice_roll(self, dice_rolls: List[int], roll_depth: int, move_tree: Tree, board_tree: Tree):
         # Recursive function, each time popping an element off dice_rolls
         if roll_depth == len(dice_rolls):
             # Used all dice rolls
-            return move_tree
+            return move_tree, board_tree
         else:
             roll = dice_rolls[roll_depth]
 
@@ -209,9 +242,10 @@ class Board:
                 # Have made a move
                 move_tree.add_child(Tree(new_move))
                 # Make move provisional
-                self.make_provisional_move(new_move, roll_depth)
+                provisional_board = self.make_provisional_move(new_move, roll_depth)
+                board_tree.add_child(Tree(provisional_board))
                 # Try next roll
-                self.get_board_from_dice_roll(dice_rolls, roll_depth + 1, move_tree.children[-1])
+                self.get_board_from_dice_roll(dice_rolls, roll_depth + 1, move_tree.children[-1], board_tree.children[-1])
         else:
             # Check to see if player is allowed to bear off (all pieces in home area)
             can_bear_off = True  # Initially assume can bear off, until proven otherwise
@@ -228,8 +262,11 @@ class Board:
                     if new_move is not None:
                         # Have made a move
                         move_tree.add_child(Tree(new_move))
+                        # Make move provisional
+                        provisional_board = self.make_provisional_move(new_move, roll_depth)
+                        board_tree.add_child(Tree(provisional_board))
                         # Try next roll
-                        self.get_board_from_dice_roll(dice_rolls, roll_depth + 1, move_tree.children[-1])
+                        self.get_board_from_dice_roll(dice_rolls, roll_depth + 1, move_tree.children[-1], board_tree.children[-1])
             else:
                 # Look through all other points and identify if they have a piece that can move
                 for i in range(1, 25):
@@ -241,8 +278,11 @@ class Board:
                             if new_move is not None:
                                 # Have made a move
                                 move_tree.add_child(Tree(new_move))
+                                # Make move provisional
+                                provisional_board = self.make_provisional_move(new_move, roll_depth)
+                                board_tree.add_child(Tree(provisional_board))
                                 # Try next roll
-                                self.get_board_from_dice_roll(dice_rolls, roll_depth + 1, move_tree.children[-1])
+                                self.get_board_from_dice_roll(dice_rolls, roll_depth + 1, move_tree.children[-1], board_tree.children[-1])
 
         self.clear_provisional_moves(roll_depth)
 
@@ -252,7 +292,7 @@ class Board:
         can_move = self.can_move_to_point(proposed_position, roll_depth, can_bear_off)
         if can_move:
             move_info = (point_index, proposed_position)
-            self.make_provisional_move(move_info, roll_depth)
+            #self.make_provisional_move(move_info, roll_depth)
         return move_info
 
     def coerce_new_position(self, current_position: int, roll_value: int):
@@ -280,19 +320,28 @@ class Board:
     def make_provisional_move(self, provisional_move: Tuple[int, int], roll_depth: int):
         start_index, dest_index = provisional_move
         start_point = self.board[start_index]
+        start_prov_point = self.board_provisional[roll_depth][start_index]
         dest_point = self.board[dest_index]
+        dest_prov_point = self.board_provisional[roll_depth][dest_index]
         for d in range(roll_depth, 4):
             start_point.removed_pieces[d] += 1
+            start_prov_point.num_pieces -= 1
             if dest_point.occupancy_provisional() == 0 or dest_point.colour_provisional[d] == self.current_player:
                 dest_point.added_pieces[d] += 1
+                dest_prov_point.colour = self.current_player
+                dest_prov_point.num_pieces += 1
             elif dest_point.colour_provisional[d] != self.current_player:
                 # Other player's one piece is being replaced by current player's piece
                 dest_point.colour_provisional[d] = self.current_player
+                dest_prov_point.colour = self.current_player
                 # Move other player's piece to bar
                 self.board[self.bar_point(other_player=True)].added_pieces[d] += 1
+                self.board_provisional[roll_depth][self.bar_point(other_player=True)].num_pieces += 1
             # In any case, piece has moved from start location
             if start_point.occupancy_provisional() == 0:
                 start_point.colour_provisional[d] = Color.Empty
+                start_prov_point.colour = Color.Empty
+        return self.board_provisional[roll_depth]
 
     def clear_provisional_moves(self, roll_depth):
         # Clear provisional moves due to current dice roll depth
@@ -308,15 +357,43 @@ class Board:
                     self.board[p].added_pieces[d] = self.board[p].added_pieces[d - 1]
                     self.board[p].colour_provisional[d] = self.board[p].colour_provisional[d - 1]
 
+        if roll_depth == 0:
+            for d in range(0, 4):
+                self.board_provisional[d] = copy.deepcopy(self.board)
+        else:
+            for d in range(roll_depth, 4):
+                self.board_provisional[d] = copy.deepcopy(self.board_provisional[roll_depth - 1])
+
+    def get_boards_from_moves(self, board_tree: Tree, board_list: List):
+        # Gets board at end of each move branch
+        for b in board_tree.children:
+            print(b.name)
+            if b.children == 0:
+                board_list.append(b.name)
+            else:
+                self.get_boards_from_moves(board_tree, board_list)
+
+
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     b = Board()
     for pp in b.board:
         print(f"Point {pp.index} is {pp.colour}, with {pp.occupancy()} pieces.")
-
     b.choose_first_player()
     dice_rolls = b.roll_dice()
     print(f"Dice rolls: {dice_rolls}")
-    move_tree = b.get_possible_boards_from_dice(dice_rolls)
+    move_tree, board_tree = b.get_possible_moves_from_dice(dice_rolls)
+    move_tree.print_tree()
+    print("Initial board:")
+    b.simple_board_representation(header=True)
+    print("Potential boards:")
+    for c in board_tree.children:
+        b.simple_board_representation(c.name)
+    # ls = board_tree.get_list_of_leaves()
+    # for leaf in ls:
+    #     b.simple_board_representation(leaf)
+    #     # print(leaf)
+    # # potential_boards = b.get_boards_from_moves(board_tree, [])
+
 
