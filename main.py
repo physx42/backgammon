@@ -82,10 +82,10 @@ class Board:
         self.board = [Point(0, 0, Color.Empty)] * 26  # Use of Point() constructor just dirty way of forcing type
         self.initialise_point(0, Color.Empty, num_pieces=0, red_bar=True)
         self.initialise_point(1, Color.Red, num_pieces=2)
-        self.initialise_point(2, Color.Empty, num_pieces=0)
-        self.initialise_point(3, Color.Empty, num_pieces=0)
-        self.initialise_point(4, Color.Empty, num_pieces=0)
-        self.initialise_point(5, Color.Empty, num_pieces=0)
+        self.initialise_point(2, Color.White, num_pieces=1)
+        self.initialise_point(3, Color.White, num_pieces=1)
+        self.initialise_point(4, Color.White, num_pieces=1)
+        self.initialise_point(5, Color.White, num_pieces=1)
         self.initialise_point(6, Color.Empty, num_pieces=0)
         self.initialise_point(7, Color.Empty, num_pieces=0)
         self.initialise_point(8, Color.Empty, num_pieces=0)
@@ -102,7 +102,7 @@ class Board:
         self.initialise_point(19, Color.Red, num_pieces=5)
         self.initialise_point(20, Color.Empty, num_pieces=0)
         self.initialise_point(21, Color.Empty, num_pieces=0)
-        self.initialise_point(22, Color.White, num_pieces=2)
+        self.initialise_point(22, Color.White, num_pieces=1)
         self.initialise_point(23, Color.Empty, num_pieces=0)
         self.initialise_point(24, Color.Empty, num_pieces=0)
         self.initialise_point(25, Color.Empty, num_pieces=0, white_bar=True)
@@ -155,7 +155,7 @@ class Board:
         print("")
 
     def choose_first_player(self):
-        if np.random.rand() > 0.5:
+        if np.random.rand() > 0.99999:
             self.current_player = Color.Red
         else:
             self.current_player = Color.White
@@ -276,17 +276,18 @@ class Board:
             if can_bear_off:
                 for p in range(1, 7):
                     abs_point = self.absolute_point(p)
-                    new_move = self.get_point_move(abs_point, roll, roll_depth, True)
-                    if new_move is not None:
-                        # Have made a move
-                        move_tree.add_child(Tree(new_move))
-                        # Make move provisional
-                        provisional_board = self.make_provisional_move(new_move, roll_depth)
-                        board_tree.add_child(Tree(provisional_board))
-                        # Try next roll depth
-                        self.get_board_from_dice_roll(dice_rolls, roll_depth + 1, move_tree.children[-1], board_tree.children[-1])
-                        # Reset board
-                        self.clear_provisional_moves(roll_depth)
+                    if self.board_provisional[roll_depth][abs_point].occupancy() > 0:
+                        new_move = self.get_point_move(abs_point, roll, roll_depth, True)
+                        if new_move is not None:
+                            # Have made a move
+                            move_tree.add_child(Tree(new_move))
+                            # Make move provisional
+                            provisional_board = self.make_provisional_move(new_move, roll_depth)
+                            board_tree.add_child(Tree(provisional_board))
+                            # Try next roll depth
+                            self.get_board_from_dice_roll(dice_rolls, roll_depth + 1, move_tree.children[-1], board_tree.children[-1])
+                            # Reset board
+                            self.clear_provisional_moves(roll_depth)
             else:
                 # Look through all other points and identify if they have a piece that can move
                 for i in range(1, 25):
@@ -310,11 +311,16 @@ class Board:
 
     def get_point_move(self, point_index: int, roll_value: int, roll_depth: int, can_bear_off: bool) -> Tuple:
         move_info = None
-        proposed_position = self.coerce_new_position(point_index, roll_value)
+        # proposed_position = self.coerce_new_position(point_index, roll_value)
+        proposed_position = self.where_will_roll_take_piece(point_index, roll_value)
         can_move = self.can_move_to_point(proposed_position, roll_depth, can_bear_off)
         if can_move:
             move_info = (point_index, proposed_position)
         return move_info
+
+    def where_will_roll_take_piece(self, current_position: int, roll_value: int) -> int:
+        new_position = current_position + self.play_direction() * roll_value
+        return new_position
 
     def coerce_new_position(self, current_position: int, roll_value: int) -> int:
         # Work out where you would be if you applied the roll to the piece at current position
@@ -325,7 +331,10 @@ class Board:
 
     def can_move_to_point(self, dest_point_index: int, roll_depth: int, can_bear_off: bool) -> bool:
         can_move = False
-        if can_bear_off and dest_point_index == self.home_point():
+        if not 0 <= dest_point_index <= 25:
+            # Trying to move to a position off the board, which is plainly not allowed!
+            can_move = False
+        elif can_bear_off and dest_point_index == self.home_point():
             can_move = True
         elif dest_point_index != self.home_point():
             destination = self.board_provisional[roll_depth][dest_point_index]
