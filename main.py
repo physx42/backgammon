@@ -100,12 +100,12 @@ class Board:
         self.initialise_point(17, Color.Red, num_pieces=3)
         self.initialise_point(18, Color.Empty, num_pieces=0)
         self.initialise_point(19, Color.Red, num_pieces=5)
-        self.initialise_point(20, Color.Empty, num_pieces=0)
-        self.initialise_point(21, Color.Empty, num_pieces=0)
-        self.initialise_point(22, Color.White, num_pieces=1)
-        self.initialise_point(23, Color.Empty, num_pieces=0)
+        self.initialise_point(20, Color.Red, num_pieces=1)
+        self.initialise_point(21, Color.Red, num_pieces=1)
+        self.initialise_point(22, Color.Red, num_pieces=1)
+        self.initialise_point(23, Color.Red, num_pieces=1)
         self.initialise_point(24, Color.Empty, num_pieces=0)
-        self.initialise_point(25, Color.Empty, num_pieces=0, white_bar=True)
+        self.initialise_point(25, Color.White, num_pieces=1, white_bar=True)
         # self.initialise_point(0, Color.Empty, num_pieces=0, red_bar=True)
         # self.initialise_point(1, Color.Red, num_pieces=2)
         # self.initialise_point(2, Color.Empty, num_pieces=0)
@@ -168,6 +168,16 @@ class Board:
             self.current_player = Color.Red
         else:
             raise Exception("Cannot change player when first player has not been initialised.")
+
+    def other_player_colour(self):
+        if self.current_player == Color.Red:
+            other_colour = Color.White
+        elif self.current_player == Color.White:
+            other_colour = Color.Red
+        else:
+            raise Exception("Cannot identify 'other' player if the 'current player' is not specified.")
+        return other_colour
+
 
     def play_direction(self):
         if self.current_player == Color.Red:
@@ -307,8 +317,6 @@ class Board:
                                 # Reset board
                                 self.clear_provisional_moves(roll_depth)
 
-
-
     def get_point_move(self, point_index: int, roll_value: int, roll_depth: int, can_bear_off: bool) -> Tuple:
         move_info = None
         # proposed_position = self.coerce_new_position(point_index, roll_value)
@@ -349,22 +357,22 @@ class Board:
 
     def make_provisional_move(self, provisional_move: Tuple[int, int], roll_depth: int) -> List[Point]:
         start_index, dest_index = provisional_move
-        # start_prov_point = self.board_provisional[roll_depth][start_index]
-        # dest_prov_point = self.board_provisional[roll_depth][dest_index]
         for d in range(roll_depth, 4):
-
             start_prov_point_d = self.board_provisional[d][start_index]
             dest_prov_point_d = self.board_provisional[d][dest_index]
-
             start_prov_point_d.num_pieces -= 1
-            if dest_prov_point_d.occupancy() == 0 or dest_prov_point_d.colour == self.current_player:
+            if dest_index == self.home_point():
+                # Piece has been cleared from board so remove it from the board point tallies
+                pass
+            elif dest_prov_point_d.occupancy() == 0 or dest_prov_point_d.colour == self.current_player:
                 dest_prov_point_d.colour = self.current_player
                 dest_prov_point_d.num_pieces += 1
             elif dest_prov_point_d.colour != self.current_player:
                 # Other player's one piece is being replaced by current player's piece
                 dest_prov_point_d.colour = self.current_player
                 # Move other player's piece to bar
-                self.board_provisional[roll_depth][self.bar_point(other_player=True)].num_pieces += 1
+                self.board_provisional[d][self.bar_point(other_player=True)].num_pieces += 1
+                self.board_provisional[d][self.bar_point(other_player=True)].colour = self.other_player_colour()
             # In any case, piece has moved from start location
             if start_prov_point_d.occupancy() == 0:
                 start_prov_point_d.colour = Color.Empty
