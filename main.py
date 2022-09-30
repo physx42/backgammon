@@ -147,12 +147,14 @@ class Board:
                 print(f" {p:03}", end="")
             print("")
         for p in board_to_print:
+            if isinstance(p, str):
+                print(f"We have a string: {p}, {board_to_print}")
             if p.colour == Color.Empty:
-                print(" 000", end="")
+                print(" ---", end="")
             elif p.colour == Color.Red:
-                print(f" +{p.num_pieces:2}", end="")
+                print(f" {p.num_pieces:2}R", end="")
             else:
-                print(f" -{p.num_pieces:2}", end="")
+                print(f" {p.num_pieces:2}W", end="")
         print("")
 
     def choose_first_player(self):
@@ -165,8 +167,10 @@ class Board:
     def change_player(self):
         if self.current_player == Color.Red:
             self.current_player = Color.White
+            print("White's turn!")
         elif self.current_player == Color.White:
             self.current_player = Color.Red
+            print("Red's turn!")
         else:
             raise Exception("Cannot change player when first player has not been initialised.")
 
@@ -399,9 +403,9 @@ class Board:
 
     def enact_provisional_move(self, target_board: List[Point]):
         # Update the board to match the provisional board that has been chosen to be used.
-        self.board = target_board
+        self.board = copy.deepcopy(target_board)
 
-    def calculate_board_features(self, board: List[Point]) -> List[float]:
+    def calculate_board_features(self, board: List[Point]) -> np.ndarray:
         # Based on Tesauro TDGammon v0.0
         # For each point on the board (1-24), features:
         # 1: 1 if current player has single piece (blot)
@@ -412,7 +416,7 @@ class Board:
         # Also, general features:
         # - Number of current and other player's pieces on bar (n/2)
         # - Number of current and other player's pieces already removed (n/15)
-        features = [0.0] * 196
+        features = np.zeros(196)
         num_mine_cleared = 0
         num_theirs_cleared = 0
         for p in range(0, 24):
@@ -437,45 +441,58 @@ class Board:
                     features[p * 8 + 6] = 1
                 elif point.num_pieces > 3:
                     features[p * 8 + 7] = (point.num_pieces - 3) / 2
-
         features[192] = board[self.bar_point()].num_pieces / 2
         features[193] = board[self.bar_point(other_player=True)].num_pieces / 2
         features[193] = num_mine_cleared / 15
         features[195] = num_theirs_cleared / 15
-
         return features
+
+    def game_over(self):
+        # Identify if current player has any pieces left
+        pieces_left = False
+        for i in range(0, 26):
+            if self.board[i].colour == self.current_player:
+                pieces_left = True
+                break
+        if pieces_left:
+            print(f"Not game over for {self.current_player}")
+        return not pieces_left
 
 
 if __name__ == '__main__':
     b = Board()
-    agent = Agent(0.1, 0.01, 0.1, 0.95)
+    agent = Agent(0.1, 0.01, 0.1, 0.95, 196)
     for pp in b.board:
         print(f"Point {pp.index} is {pp.colour}, with {pp.occupancy()} pieces.")
     b.choose_first_player()
-    dice_rolls = b.roll_dice()
-    print(f"Dice rolls: {dice_rolls}")
-    move_tree, board_tree = b.get_possible_moves_from_dice(dice_rolls)
-    move_tree.print_tree()
-    print("Initial board:")
-    b.simple_board_representation(header=True)
-    print(f"Number of possible boards: {len(board_tree.get_list_of_leaves())}")
-    print("Potential boards:")
-    # for c in board_tree.children:
-    #     # b.simple_board_representation(c.name)
-    #     for cc in c.children:
-    #         b.simple_board_representation(cc.name)
-    possible_boards = board_tree.get_list_of_leaves()
-    if len(possible_boards) > 0:
-        board_assessments = []
-        for possible_board in possible_boards:
-            b.simple_board_representation(possible_board)
-            board_features = b.calculate_board_features(possible_board)
-            board_assessments.append(agent.assess_features(possible_board))
-            print(f"Features: {board_features}, Assessment: {board_assessments[-1]}")
-        action_index = agent.epsilon_greedy(board_assessments)
-        # Perform chosen action
-        # TODO put some kind of assert here as possible board will always be defined
-        b.enact_provisional_move(possible_board[action_index])
+    while True:
+        dice_rolls = b.roll_dice()
+        print(f"Dice rolls: {dice_rolls}")
+        move_tree, board_tree = b.get_possible_moves_from_dice(dice_rolls)
+        move_tree.print_tree()
+        print("Initial board:")
+        b.simple_board_representation(header=True)
+        print(f"Number of possible boards: {len(board_tree.get_list_of_leaves())}")
+        print("Potential boards:")
+        possible_boards = board_tree.get_list_of_leaves()
+        if len(board_tree.children) > 0:
+            board_assessments = []
+            for possible_board in possible_boards:
+                b.simple_board_representation(possible_board)
+                board_features = b.calculate_board_features(possible_board)
+                board_assessments.append(agent.assess_features(board_features))
+            print(f"Board assessments: {board_assessments}")
+            action_index = agent.epsilon_greedy_action(board_assessments)
+            print(f"Chosen action: {action_index}")
+            # Perform chosen action
+            # TODO put some kind of assert here as possible board will always be defined
+            b.enact_provisional_move(possible_boards[action_index])
+        if b.game_over():
+            break
+        else:
+            b.change_player()
+    print(f"Game over! Game won by {b.current_player}")
+
 
         # print(leaf)
     # potential_boards = b.get_boards_from_moves(board_tree, [])
