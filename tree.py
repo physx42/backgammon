@@ -1,3 +1,4 @@
+import logging
 
 class Tree(object):
     """Generic tree node."""
@@ -25,7 +26,7 @@ class Tree(object):
 
     def print_tree(self, depth=0):
         tabbing = "\t" * depth
-        print(f"{tabbing}{self.name}")
+        logging.debug(f"{tabbing}{self.name}")
         for child in self.children:
             child.print_tree(depth + 1)
 

@@ -1,9 +1,10 @@
 # agent
+import logging
 
 import tensorflow as tf
-# from tensorflow import keras
 from typing import List
 import numpy as np
+import logging
 
 
 class Agent:
@@ -30,7 +31,7 @@ class Agent:
         prediction = self.model(features[np.newaxis])
         return tf.reduce_sum(prediction)
 
-    def epsilon_greedy_action(self, networks_outputs: List[float], print_outputs: bool) -> int:
+    def epsilon_greedy_action(self, networks_outputs: List[float]) -> int:
         if np.random.rand() < self.epsilon:
             # Explore
             chosen_index = np.random.randint(0, len(networks_outputs))
@@ -38,10 +39,9 @@ class Agent:
             # Exploit
             possible_indices = np.argwhere(networks_outputs == np.amax(networks_outputs)).flatten().tolist()
             chosen_index = np.random.choice(possible_indices)
-        if print_outputs:
-            print("Network outputs:", end="")
-            print([f"{x:.5f}" for x in networks_outputs])
-            print(f"Chosen action: {chosen_index}")
+        logging.debug("Network outputs:")
+        logging.debug([f"{x:.5f}" for x in networks_outputs])
+        logging.info(f"Chosen action: {chosen_index}")
         return chosen_index
 
     def greedy_action(self, networks_outputs: List[float]) -> int:
@@ -49,7 +49,7 @@ class Agent:
         chosen_index = np.random.choice(possible_indices)
         return chosen_index
 
-    def train(self, previous_state, new_state, reward):
+    def update_model(self, previous_state, new_state, reward):
         with tf.GradientTape() as tape:
             value_next = self.assess_features(new_state)
         trainable_vars = self.model.trainable_variables

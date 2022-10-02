@@ -3,7 +3,7 @@ import numpy as np
 from typing import List, Tuple
 import copy
 from tree import Tree
-
+import logging
 
 class Point:
     def __init__(self, index, num_pieces, colour, red_bar=False, white_bar=False):
@@ -40,7 +40,7 @@ class Board:
 
     def initialise_simple_board(self):
         self.initialise_point(0, Colour.Empty, num_pieces=0, red_bar=True)
-        self.initialise_point(1, Colour.Red, num_pieces=2)
+        self.initialise_point(1, Colour.Red, num_pieces=5)
         self.initialise_point(2, Colour.Empty, num_pieces=0)
         self.initialise_point(3, Colour.Empty, num_pieces=0)
         self.initialise_point(4, Colour.Empty, num_pieces=0)
@@ -63,7 +63,7 @@ class Board:
         self.initialise_point(21, Colour.Empty, num_pieces=0)
         self.initialise_point(22, Colour.Empty, num_pieces=0)
         self.initialise_point(23, Colour.Empty, num_pieces=0)
-        self.initialise_point(24, Colour.White, num_pieces=2)
+        self.initialise_point(24, Colour.White, num_pieces=5)
         self.initialise_point(25, Colour.Empty, num_pieces=0, white_bar=True)
 
     def initialise_real_board(self):
@@ -95,7 +95,7 @@ class Board:
         self.initialise_point(25, Colour.Empty, num_pieces=0, white_bar=True)
         if self.print_boards:
             for p in self.board:
-                print(f"Point {p.index} is {p.colour}, with {p.occupancy()} pieces.")
+                logging.debug(f"Point {p.index} is {p.colour}, with {p.occupancy()} pieces.")
 
     def print(self, message, force_show=False):
         if self.print_boards:
@@ -104,63 +104,38 @@ class Board:
     def simple_board_representation(self, title, board_to_print=None, header=False, count=-1):
         if self.print_boards:  # Only print if print mode enabled
             if title != "":
-                print(title)
+                logging.info(title)
             red_total = 0
             white_total = 0
             if board_to_print is None:
                 board_to_print = self.board
             if header:
-                print("\t", end="")
-                for p in range(0, 26):
-                    print(f" {p:03}", end="")
-                print("\tTotals\tW\tR")
+                text = "\t" + " ".join([f"{p:03}" for p in range(0, 26)]) + "\tTotals\tW\tR"
+                logging.info(text)
             # If count is >=0 then print it at start of line
             if count >= 0:
-                print(f"{count:>3}\t", end="")
+                text = f"{count:>4}"
             else:
-                print("\t", end="")
+                text = f"    "
             for p in board_to_print:
                 if p.colour == Colour.Empty:
-                    print(" ---", end="")
+                    text = text + " ---"
                 elif p.colour == Colour.Red:
-                    print(f" {p.num_pieces:2}R", end="")
+                    text = text + f" {p.num_pieces:2}R"
                     red_total += p.num_pieces
                 else:
-                    print(f" {p.num_pieces:2}W", end="")
+                    text = text + f" {p.num_pieces:2}W"
                     white_total += p.num_pieces
-            print(f"\t\t\t{white_total}\t{red_total}")
+            text = text + f"\t\t{white_total}\t{red_total}"
+            logging.info(text)
 
     def print_move_tree(self, tree):
-        if self.print_boards:
-            tree.print_tree()
+        tree.print_tree()
 
-    def choose_first_player(self):
-        self.turn = 0  # reset counter
-        if np.random.rand() > 0:
-            self.current_player = Colour.Red
-        else:
-            self.current_player = Colour.White
-        self.print(f"First player is {self.current_player}")
-
-    def change_player(self):
-        self.turn += 1
-        if self.current_player == Colour.Red:
-            self.current_player = Colour.White
-            self.print(f"Turn {self.turn}: White")
-        elif self.current_player == Colour.White:
-            self.current_player = Colour.Red
-            self.print(f"Turn {self.turn}: Red")
-        else:
-            raise Exception("Cannot change player when first player has not been initialised.")
+    def set_player(self, colour):
+        self.current_player = colour
         # Make sure everything is cleared
         self.clear_provisional_moves(0)
-
-    def record_initial_board_for_player(self):
-        if self.current_player == Colour.Red:
-            self.last_red_features = self.calculate_board_features(self.board)
-        else:
-            self.last_white_features = self.calculate_board_features(self.board)
-
 
     def other_player_colour(self):
         if self.current_player == Colour.Red:
@@ -202,14 +177,26 @@ class Board:
                 raise Exception("Bar point has no meaning for non-colour.")
         return point
 
-    def absolute_point(self, point):
+    def absolute_point(self, relative_point: int) -> int:
+        # Converts relative position indices to the universal positions
+        # (i.e. 0 = white home, 25 = red home)
         if self.current_player == Colour.Red:
-            abs_point = 25 - point
+            abs_point = 25 - relative_point
         elif self.current_player == Colour.Empty:
             raise Exception("Point has no meaning for non-colour.")
         else:
-            abs_point = point
+            abs_point = relative_point
         return abs_point
+
+    def relative_point(self, abs_point: int) -> int:
+        # Converts position indices so that 0 is home for both players
+        if self.current_player == Colour.White:
+            rel_point = abs_point
+        elif self.current_player == Colour.Empty:
+            raise Exception("Point has no meaning for non-colour.")
+        else:
+            rel_point = 25 - abs_point
+        return rel_point
 
     def initialise_point(self, point_index, colour, num_pieces, red_bar=False, white_bar=False) -> None:
         point = Point(point_index, num_pieces, colour, red_bar, white_bar)
@@ -369,7 +356,6 @@ class Board:
         for d in range(roll_depth + 1, 4):
             self.board_provisional[d] = copy.deepcopy(self.board_provisional[roll_depth])
 
-
     def clear_provisional_moves(self, roll_depth):
         # Clear provisional moves due to current dice roll depth
         if roll_depth == 0:
@@ -403,11 +389,13 @@ class Board:
         # Also, general features:
         # - Number of current and other player's pieces on bar (n/2)
         # - Number of current and other player's pieces already removed (n/15)
+        # For the purposes of calculating features, the board direction is adjusted
+        # such that 0 is the home point and 25 is the bar.
         features = np.zeros(196)
         num_mine_cleared = 0
         num_theirs_cleared = 0
         for p in range(0, 24):
-            point = board[p]
+            point = board[self.relative_point(p + 1)]
             if point.colour == self.current_player:
                 num_mine_cleared += point.num_pieces
                 if point.num_pieces == 1:
@@ -434,11 +422,11 @@ class Board:
         features[195] = num_theirs_cleared / 15
         return features
 
-    def game_over(self):
-        # Identify if current player has any pieces left
+    def game_won(self, player_colour):
+        # Identify if specified player has any pieces left
         pieces_left = False
         for i in range(0, 26):
-            if self.board[i].colour == self.current_player:
+            if self.board[i].colour == player_colour:
                 pieces_left = True
                 break
         return not pieces_left
