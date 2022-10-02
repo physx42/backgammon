@@ -139,16 +139,20 @@ class Board:
         self.board_provisional = [copy.deepcopy(self.board), copy.deepcopy(self.board),
                                   copy.deepcopy(self.board), copy.deepcopy(self.board)]
 
-    def simple_board_representation(self, board_to_print=None, header=False):
+    def simple_board_representation(self, board_to_print=None, header=False, count=-1):
         if board_to_print is None:
             board_to_print = self.board
         if header:
+            print("\t", end="")
             for p in range(0, 26):
                 print(f" {p:03}", end="")
             print("")
+        # If count is >=0 then print it at start of line
+        if count >= 0:
+            print(f"{count:>3}\t", end="")
+        else:
+            print("\t", end="")
         for p in board_to_print:
-            if isinstance(p, str):
-                print(f"We have a string: {p}, {board_to_print}")
             if p.colour == Color.Empty:
                 print(" ---", end="")
             elif p.colour == Color.Red:
@@ -256,6 +260,7 @@ class Board:
             self.get_board_from_dice_roll(dice_rolls, 0, move_tree, board_tree)
             dice_rolls.reverse()  # Only has effect if more than one permutation
 
+        self.clear_provisional_moves(0)
         return move_tree, board_tree
 
     def get_board_from_dice_roll(self, dice_rolls: List[int], roll_depth: int, move_tree: Tree, board_tree: Tree) -> None:
@@ -275,7 +280,7 @@ class Board:
                 move_tree.add_child(Tree(new_move))
                 # Make move provisional
                 provisional_board = self.make_provisional_move(new_move, roll_depth)
-                board_tree.add_child(Tree(provisional_board))
+                board_tree.add_child(Tree(copy.deepcopy(provisional_board)))
                 # Try next roll depth
                 self.get_board_from_dice_roll(dice_rolls, roll_depth + 1, move_tree.children[-1], board_tree.children[-1])
                 # Reset board
@@ -283,7 +288,7 @@ class Board:
         else:
             # Check to see if player is allowed to bear off (all pieces in home area)
             can_bear_off = True  # Initially assume can bear off, until proven otherwise
-            for n in range(7, 25):
+            for n in range(7, 26):
                 point = self.absolute_point(n)
                 if self.board_provisional[roll_depth][point].colour == self.current_player:
                     # Player has piece outside of home area
@@ -291,14 +296,15 @@ class Board:
             if can_bear_off:
                 for p in range(1, 7):
                     abs_point = self.absolute_point(p)
-                    if self.board_provisional[roll_depth][abs_point].occupancy() > 0:
+                    if self.board_provisional[roll_depth][abs_point].occupancy() > 0 and \
+                            self.board_provisional[roll_depth][abs_point].colour == self.current_player:
                         new_move = self.get_point_move(abs_point, roll, roll_depth, True)
                         if new_move is not None:
                             # Have made a move
                             move_tree.add_child(Tree(new_move))
                             # Make move provisional
                             provisional_board = self.make_provisional_move(new_move, roll_depth)
-                            board_tree.add_child(Tree(provisional_board))
+                            board_tree.add_child(Tree(copy.deepcopy(provisional_board)))
                             # Try next roll depth
                             self.get_board_from_dice_roll(dice_rolls, roll_depth + 1, move_tree.children[-1], board_tree.children[-1])
                             # Reset board
@@ -307,7 +313,7 @@ class Board:
                 # Look through all other points and identify if they have a piece that can move
                 for i in range(1, 25):
                     point = self.board_provisional[roll_depth][i]
-                    if point.occupancy() > 0:
+                    if point.occupancy() > 0 and point.colour == self.current_player:
                         if point.colour == self.current_player:
                             # Point belongs to current player, so see if player can make move
                             new_move = self.get_point_move(i, roll, roll_depth, False)
@@ -316,7 +322,7 @@ class Board:
                                 move_tree.add_child(Tree(new_move))
                                 # Make move provisional
                                 provisional_board = self.make_provisional_move(new_move, roll_depth)
-                                board_tree.add_child(Tree(provisional_board))
+                                board_tree.add_child(Tree(copy.deepcopy(provisional_board)))
                                 # Try next roll depth
                                 self.get_board_from_dice_roll(dice_rolls, roll_depth + 1, move_tree.children[-1], board_tree.children[-1])
                                 # Reset board
@@ -362,6 +368,7 @@ class Board:
 
     def make_provisional_move(self, provisional_move: Tuple[int, int], roll_depth: int) -> List[Point]:
         start_index, dest_index = provisional_move
+        # TODO make code more efficient by working out board for this roll depth then just copying to deeper roll depths
         for d in range(roll_depth, 4):
             start_prov_point_d = self.board_provisional[d][start_index]
             dest_prov_point_d = self.board_provisional[d][dest_index]
@@ -478,7 +485,7 @@ if __name__ == '__main__':
         if len(board_tree.children) > 0:
             board_assessments = []
             for possible_board in possible_boards:
-                b.simple_board_representation(possible_board)
+                b.simple_board_representation(possible_board, count=len(board_assessments))
                 board_features = b.calculate_board_features(possible_board)
                 board_assessments.append(agent.assess_features(board_features))
             print(f"Board assessments: {board_assessments}")
