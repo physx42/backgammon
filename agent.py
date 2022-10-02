@@ -1,11 +1,10 @@
 # agent
-import random
 
-# TODO import tf and keras
 import tensorflow as tf
 # from tensorflow import keras
 from typing import List
 import numpy as np
+
 
 class Agent:
     def __init__(self, alpha, epsilon, learning_rate, gamma, num_features):
@@ -16,6 +15,12 @@ class Agent:
         self.learning_rate = learning_rate
         self.gamma = gamma
 
+        self.trace = []
+
+    def reset_trace(self):
+        for i in range(len(self.trace)):
+            self.trace[i].assign(tf.zeros(self.trace[i].get_shape()))
+
     def generate_model(self):
         inputs = tf.keras.Input(shape=(self.num_features,))
         x = tf.keras.layers.Dense(40, activation="sigmoid")(inputs)
@@ -24,7 +29,7 @@ class Agent:
 
     def assess_features(self, features: np.ndarray):
         prediction = self.model(features[np.newaxis])
-        return prediction[0].numpy().item()
+        return tf.reduce_sum(prediction)
 
     def epsilon_greedy_action(self, networks_outputs: List[float], print_outputs: bool) -> int:
         if np.random.rand() < self.epsilon:
@@ -44,6 +49,22 @@ class Agent:
         possible_indices = np.argmax(networks_outputs)
         chosen_index = np.random.choice(possible_indices)
         return chosen_index
+
+    def train(self, previous_state, new_state, reward):
+        with tf.GradientTape() as tape:
+            value_next = self.assess_features(new_state)
+        trainable_vars = self.model.trainable_variables
+        grads = tape.gradient(value_next, trainable_vars)
+
+        if len(self.trace) == 0:
+            for grad in grads:
+                self.trace.append(tf.Variable(tf.zeros(grad.get_shape()), trainable=False))
+        td_error = tf.reduce_sum(reward + value_next - self.assess_features(previous_state))
+        for i in range(len(grads)):
+            self.trace[i].assign((self.learning_rate * self.trace[i]) + grads[i])
+            grad_trace = self.alpha * td_error * self.trace[i]
+            self.model.trainable_variables[i].assign_add(grad_trace)
+
 
 if __name__ == '__main__':
     a = Agent(0.1, 0.01, 0.1, 0.95, 10)

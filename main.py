@@ -88,6 +88,9 @@ class Board:
         # Can print to console board and potential moves if print_boards is True
         self.print_boards = print_boards
         self.turn = 0
+        # Allow for recording of previous board, to aid training
+        self.last_white_features = None
+        self.last_red_features = None
 
     def initialise_real_board(self):
         self.initialise_point(0, Color.Empty, num_pieces=0, red_bar=True)
@@ -152,7 +155,7 @@ class Board:
 
     def choose_first_player(self):
         self.turn = 0  # reset counter
-        if np.random.rand() > 0.5:
+        if np.random.rand() > 0:
             self.current_player = Color.Red
         else:
             self.current_player = Color.White
@@ -170,6 +173,13 @@ class Board:
             raise Exception("Cannot change player when first player has not been initialised.")
         # Make sure everything is cleared
         self.clear_provisional_moves(0)
+
+    def record_initial_board_for_player(self):
+        if self.current_player == Color.Red:
+            self.last_red_features = self.calculate_board_features(self.board)
+        else:
+            self.last_white_features = self.calculate_board_features(self.board)
+
 
     def other_player_colour(self):
         if self.current_player == Color.Red:
@@ -454,13 +464,14 @@ class Board:
 
 
 if __name__ == '__main__':
-    b = Board(True)
+    b = Board(False)
     agent = Agent(0.1, 0.01, 0.1, 0.95, 196)
     for pp in b.board:
         print(f"Point {pp.index} is {pp.colour}, with {pp.occupancy()} pieces.")
     b.choose_first_player()
 
     while True:
+        b.record_initial_board_for_player()
         dice_rolls = b.roll_dice()
         print(f"Dice rolls: {dice_rolls}")
         move_tree, board_tree = b.get_possible_moves_from_dice(dice_rolls)
@@ -470,22 +481,35 @@ if __name__ == '__main__':
         possible_boards = board_tree.get_list_of_leaves()
         if len(board_tree.children) > 0:
             board_assessments = []
+            print(f"{len(possible_boards)} possible boards")
             for possible_board in possible_boards:
                 b.simple_board_representation("", possible_board, count=len(board_assessments))
                 board_features = b.calculate_board_features(possible_board)
-                board_assessments.append(agent.assess_features(board_features))
+                board_assessments.append(agent.assess_features(board_features).numpy().item())
             action_index = agent.epsilon_greedy_action(board_assessments, print_outputs=b.print_boards)
             # Perform chosen action
-            # TODO put some kind of assert here as possible board will always be defined
             b.enact_provisional_move(possible_boards[action_index])
+
+            # Train
+            if b.current_player == Color.Red:
+                last_features = b.last_red_features
+            else:
+                last_features = b.last_white_features
+            agent.train(last_features, b.calculate_board_features(b.board), reward=0)
+
         if b.game_over():
             break
         else:
             b.change_player()
+
+    # Allow to learn from the game win
+    if b.current_player == Color.Red:
+        last_features = b.last_red_features
+    else:
+        last_features = b.last_white_features
+    agent.train(last_features, b.calculate_board_features(b.board), reward=1)
+
     print(f"Game over! Game won by {b.current_player}")
 
-
-        # print(leaf)
-    # potential_boards = b.get_boards_from_moves(board_tree, [])
 
 
