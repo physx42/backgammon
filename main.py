@@ -53,11 +53,16 @@ class Tree(object):
                 count += 1 + child.get_total_nodes()
         return count
 
-    def get_list_of_leaves(self):
-        leaves = []
-        if self.count_children() > 0:
-            for child in self.children:
-                leaves = leaves + [child.name] + child.get_list_of_leaves()
+    def get_list_of_leaves(self, top=True):
+        if top and self.count_children() == 0:
+            leaves = []
+        else:
+            if self.count_children() > 0:
+                leaves = []
+                for child in self.children:
+                    leaves = leaves + child.get_list_of_leaves(False)
+            else:
+                leaves = [self.name]
         return leaves
 
 
@@ -77,20 +82,50 @@ class Point:
 
 
 class Board:
-    def __init__(self, print_boards=True):
+    def __init__(self, debug_print=True, simple_board=False):
+        self.print_boards = debug_print  # Determines whether debug output can be printed
         self.board = [Point(0, 0, Color.Empty)] * 26  # Use of Point() constructor just dirty way of forcing type
-        self.initialise_real_board()
+        if simple_board:
+            self.initialise_simple_board()
+        else:
+            self.initialise_real_board()
         # Record current player
         self.current_player = Color.Empty
         # Provisional board for move calculations
         self.board_provisional = [copy.deepcopy(self.board), copy.deepcopy(self.board),
                                   copy.deepcopy(self.board), copy.deepcopy(self.board)]
-        # Can print to console board and potential moves if print_boards is True
-        self.print_boards = print_boards
         self.turn = 0
         # Allow for recording of previous board, to aid training
         self.last_white_features = None
         self.last_red_features = None
+
+    def initialise_simple_board(self):
+        self.initialise_point(0, Color.Empty, num_pieces=0, red_bar=True)
+        self.initialise_point(1, Color.Red, num_pieces=2)
+        self.initialise_point(2, Color.Empty, num_pieces=0)
+        self.initialise_point(3, Color.Empty, num_pieces=0)
+        self.initialise_point(4, Color.Empty, num_pieces=0)
+        self.initialise_point(5, Color.Empty, num_pieces=0)
+        self.initialise_point(6, Color.Empty, num_pieces=0)
+        self.initialise_point(7, Color.Empty, num_pieces=0)
+        self.initialise_point(8, Color.Empty, num_pieces=0)
+        self.initialise_point(9, Color.Empty, num_pieces=0)
+        self.initialise_point(10, Color.Empty, num_pieces=0)
+        self.initialise_point(11, Color.Empty, num_pieces=0)
+        self.initialise_point(12, Color.Empty, num_pieces=0)
+        self.initialise_point(13, Color.Empty, num_pieces=0)
+        self.initialise_point(14, Color.Empty, num_pieces=0)
+        self.initialise_point(15, Color.Empty, num_pieces=0)
+        self.initialise_point(16, Color.Empty, num_pieces=0)
+        self.initialise_point(17, Color.Empty, num_pieces=0)
+        self.initialise_point(18, Color.Empty, num_pieces=0)
+        self.initialise_point(19, Color.Empty, num_pieces=0)
+        self.initialise_point(20, Color.Empty, num_pieces=0)
+        self.initialise_point(21, Color.Empty, num_pieces=0)
+        self.initialise_point(22, Color.Empty, num_pieces=0)
+        self.initialise_point(23, Color.Empty, num_pieces=0)
+        self.initialise_point(24, Color.White, num_pieces=2)
+        self.initialise_point(25, Color.Empty, num_pieces=0, white_bar=True)
 
     def initialise_real_board(self):
         self.initialise_point(0, Color.Empty, num_pieces=0, red_bar=True)
@@ -119,6 +154,13 @@ class Board:
         self.initialise_point(23, Color.Empty, num_pieces=0)
         self.initialise_point(24, Color.White, num_pieces=2)
         self.initialise_point(25, Color.Empty, num_pieces=0, white_bar=True)
+        if self.print_boards:
+            for p in b.board:
+                print(f"Point {p.index} is {p.colour}, with {p.occupancy()} pieces.")
+
+    def print(self, message, force_show=False):
+        if self.print_boards:
+            print(message)
 
     def simple_board_representation(self, title, board_to_print=None, header=False, count=-1):
         if self.print_boards:  # Only print if print mode enabled
@@ -159,16 +201,16 @@ class Board:
             self.current_player = Color.Red
         else:
             self.current_player = Color.White
-        print(f"First player is {self.current_player}")
+        self.print(f"First player is {self.current_player}")
 
     def change_player(self):
         self.turn += 1
         if self.current_player == Color.Red:
             self.current_player = Color.White
-            print(f"Turn {self.turn}: White")
+            self.print(f"Turn {self.turn}: White")
         elif self.current_player == Color.White:
             self.current_player = Color.Red
-            print(f"Turn {self.turn}: Red")
+            self.print(f"Turn {self.turn}: Red")
         else:
             raise Exception("Cannot change player when first player has not been initialised.")
         # Make sure everything is cleared
@@ -286,7 +328,7 @@ class Board:
                 # Try next roll depth
                 self.get_board_from_dice_roll(dice_rolls, roll_depth + 1, move_tree.children[-1], board_tree.children[-1])
                 # # Reset board
-                # self.clear_provisional_moves(roll_depth)
+                self.clear_provisional_moves(roll_depth)
         else:
             # Check to see if player is allowed to bear off (all pieces in home area)
             can_bear_off = True  # Initially assume can bear off, until proven otherwise
@@ -310,7 +352,7 @@ class Board:
                             # Try next roll depth
                             self.get_board_from_dice_roll(dice_rolls, roll_depth + 1, move_tree.children[-1], board_tree.children[-1])
                             # # Reset board
-                            # self.clear_provisional_moves(roll_depth)
+                            self.clear_provisional_moves(roll_depth)
             else:
                 # Look through all other points and identify if they have a piece that can move
                 for i in range(1, 25):
@@ -328,7 +370,7 @@ class Board:
                                 # Try next roll depth
                                 self.get_board_from_dice_roll(dice_rolls, roll_depth + 1, move_tree.children[-1], board_tree.children[-1])
                                 # # Reset board
-                                # self.clear_provisional_moves(roll_depth)
+                                self.clear_provisional_moves(roll_depth)
 
         # Reset board
         self.clear_provisional_moves(roll_depth)
@@ -464,52 +506,53 @@ class Board:
 
 
 if __name__ == '__main__':
-    b = Board(False)
-    agent = Agent(0.1, 0.01, 0.1, 0.95, 196)
-    for pp in b.board:
-        print(f"Point {pp.index} is {pp.colour}, with {pp.occupancy()} pieces.")
-    b.choose_first_player()
+    agent = Agent(0.1, 0.01, 0.7, 196)
 
-    while True:
-        b.record_initial_board_for_player()
-        dice_rolls = b.roll_dice()
-        print(f"Dice rolls: {dice_rolls}")
-        move_tree, board_tree = b.get_possible_moves_from_dice(dice_rolls)
-        b.print_move_tree(move_tree)
-        b.simple_board_representation("Initial board:", header=True)
-        print(f"Number of possible moves: {len(board_tree.get_list_of_leaves())}")
-        possible_boards = board_tree.get_list_of_leaves()
-        if len(board_tree.children) > 0:
-            board_assessments = []
-            print(f"{len(possible_boards)} possible boards")
-            for possible_board in possible_boards:
-                b.simple_board_representation("", possible_board, count=len(board_assessments))
-                board_features = b.calculate_board_features(possible_board)
-                board_assessments.append(agent.assess_features(board_features).numpy().item())
-            action_index = agent.epsilon_greedy_action(board_assessments, print_outputs=b.print_boards)
-            # Perform chosen action
-            b.enact_provisional_move(possible_boards[action_index])
+    for episode in range(0, 100):
+        print(f"--------- BEGIN EPISODE {episode} -----------")
+        b = Board(debug_print=False, simple_board=True)
+        b.choose_first_player()
 
-            # Train
-            if b.current_player == Color.Red:
-                last_features = b.last_red_features
+        while True:
+            b.record_initial_board_for_player()
+            dice_rolls = b.roll_dice()
+            b.print(f"Dice rolls: {dice_rolls}")
+            move_tree, board_tree = b.get_possible_moves_from_dice(dice_rolls)
+            b.print_move_tree(move_tree)
+            b.simple_board_representation("Initial board:", header=True)
+            possible_boards = board_tree.get_list_of_leaves(top=True)
+            b.print(f"Number of possible moves: {len(possible_boards)}")
+            b.print(f"{len(possible_boards)} possible boards")
+            if len(board_tree.children) > 0:
+                board_assessments = []
+                for possible_board in possible_boards:
+                    b.simple_board_representation("", possible_board, count=len(board_assessments))
+                    board_features = b.calculate_board_features(possible_board)
+                    board_assessments.append(agent.assess_features(board_features).numpy().item())
+                action_index = agent.epsilon_greedy_action(board_assessments, print_outputs=b.print_boards)
+                # Perform chosen action
+                b.enact_provisional_move(possible_boards[action_index])
+
+                # Train
+                if b.current_player == Color.Red:
+                    last_features = b.last_red_features
+                else:
+                    last_features = b.last_white_features
+                agent.train(last_features, b.calculate_board_features(b.board), reward=0)
+
+            if b.game_over():
+                break
             else:
-                last_features = b.last_white_features
-            agent.train(last_features, b.calculate_board_features(b.board), reward=0)
+                b.change_player()
 
-        if b.game_over():
-            break
+        # Allow to learn from the game win
+        if b.current_player == Color.Red:
+            last_features = b.last_red_features
         else:
-            b.change_player()
+            last_features = b.last_white_features
+        agent.train(last_features, b.calculate_board_features(b.board), reward=1)
 
-    # Allow to learn from the game win
-    if b.current_player == Color.Red:
-        last_features = b.last_red_features
-    else:
-        last_features = b.last_white_features
-    agent.train(last_features, b.calculate_board_features(b.board), reward=1)
-
-    print(f"Game over! Game won by {b.current_player}")
+        print(f"Game over! Game won by {b.current_player}")
 
 
 

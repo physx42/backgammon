@@ -7,13 +7,12 @@ import numpy as np
 
 
 class Agent:
-    def __init__(self, alpha, epsilon, learning_rate, gamma, num_features):
+    def __init__(self, alpha, epsilon, learning_rate, num_features):
         self.num_features = num_features
         self.model = self.generate_model()
         self.alpha = alpha
         self.epsilon = epsilon
         self.learning_rate = learning_rate
-        self.gamma = gamma
 
         self.trace = []
 
