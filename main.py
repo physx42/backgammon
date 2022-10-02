@@ -79,90 +79,76 @@ class Point:
 
 
 class Board:
-    def __init__(self):
+    def __init__(self, print_boards=True):
         self.board = [Point(0, 0, Color.Empty)] * 26  # Use of Point() constructor just dirty way of forcing type
+        self.initialise_real_board()
+        # Record current player
+        self.current_player = Color.Empty
+        # Provisional board for move calculations
+        self.board_provisional = [copy.deepcopy(self.board), copy.deepcopy(self.board),
+                                  copy.deepcopy(self.board), copy.deepcopy(self.board)]
+        # Can print to console board and potential moves if print_boards is True
+        self.print_boards = print_boards
+
+    def initialise_real_board(self):
         self.initialise_point(0, Color.Empty, num_pieces=0, red_bar=True)
         self.initialise_point(1, Color.Red, num_pieces=2)
-        self.initialise_point(2, Color.White, num_pieces=1)
-        self.initialise_point(3, Color.White, num_pieces=1)
-        self.initialise_point(4, Color.White, num_pieces=1)
-        self.initialise_point(5, Color.White, num_pieces=1)
-        self.initialise_point(6, Color.Empty, num_pieces=0)
+        self.initialise_point(2, Color.Empty, num_pieces=0)
+        self.initialise_point(3, Color.Empty, num_pieces=0)
+        self.initialise_point(4, Color.Empty, num_pieces=0)
+        self.initialise_point(5, Color.Empty, num_pieces=0)
+        self.initialise_point(6, Color.White, num_pieces=5)
         self.initialise_point(7, Color.Empty, num_pieces=0)
-        self.initialise_point(8, Color.Empty, num_pieces=0)
+        self.initialise_point(8, Color.White, num_pieces=3)
         self.initialise_point(9, Color.Empty, num_pieces=0)
         self.initialise_point(10, Color.Empty, num_pieces=0)
         self.initialise_point(11, Color.Empty, num_pieces=0)
         self.initialise_point(12, Color.Red, num_pieces=5)
-        self.initialise_point(13, Color.Empty, num_pieces=0)
+        self.initialise_point(13, Color.White, num_pieces=5)
         self.initialise_point(14, Color.Empty, num_pieces=0)
         self.initialise_point(15, Color.Empty, num_pieces=0)
         self.initialise_point(16, Color.Empty, num_pieces=0)
         self.initialise_point(17, Color.Red, num_pieces=3)
         self.initialise_point(18, Color.Empty, num_pieces=0)
         self.initialise_point(19, Color.Red, num_pieces=5)
-        self.initialise_point(20, Color.Red, num_pieces=1)
-        self.initialise_point(21, Color.Red, num_pieces=1)
-        self.initialise_point(22, Color.Red, num_pieces=1)
-        self.initialise_point(23, Color.Red, num_pieces=1)
-        self.initialise_point(24, Color.Empty, num_pieces=0)
-        self.initialise_point(25, Color.White, num_pieces=1, white_bar=True)
-        # self.initialise_point(0, Color.Empty, num_pieces=0, red_bar=True)
-        # self.initialise_point(1, Color.Red, num_pieces=2)
-        # self.initialise_point(2, Color.Empty, num_pieces=0)
-        # self.initialise_point(3, Color.Empty, num_pieces=0)
-        # self.initialise_point(4, Color.Empty, num_pieces=0)
-        # self.initialise_point(5, Color.Empty, num_pieces=0)
-        # self.initialise_point(6, Color.White, num_pieces=5)
-        # self.initialise_point(7, Color.Empty, num_pieces=0)
-        # self.initialise_point(8, Color.White, num_pieces=3)
-        # self.initialise_point(9, Color.Empty, num_pieces=0)
-        # self.initialise_point(10, Color.Empty, num_pieces=0)
-        # self.initialise_point(11, Color.Empty, num_pieces=0)
-        # self.initialise_point(12, Color.Red, num_pieces=5)
-        # self.initialise_point(13, Color.White, num_pieces=5)
-        # self.initialise_point(14, Color.Empty, num_pieces=0)
-        # self.initialise_point(15, Color.Empty, num_pieces=0)
-        # self.initialise_point(16, Color.Empty, num_pieces=0)
-        # self.initialise_point(17, Color.Red, num_pieces=3)
-        # self.initialise_point(18, Color.Empty, num_pieces=0)
-        # self.initialise_point(19, Color.Red, num_pieces=5)
-        # self.initialise_point(20, Color.Empty, num_pieces=0)
-        # self.initialise_point(21, Color.Empty, num_pieces=0)
-        # self.initialise_point(22, Color.Empty, num_pieces=0)
-        # self.initialise_point(23, Color.Empty, num_pieces=0)
-        # self.initialise_point(24, Color.White, num_pieces=2)
-        # self.initialise_point(25, Color.Empty, num_pieces=0, white_bar=True)
-        # Record current player
-        self.current_player = Color.Empty
-        # Provisional board for move calculations
-        self.board_provisional = [copy.deepcopy(self.board), copy.deepcopy(self.board),
-                                  copy.deepcopy(self.board), copy.deepcopy(self.board)]
+        self.initialise_point(20, Color.Empty, num_pieces=0)
+        self.initialise_point(21, Color.Empty, num_pieces=0)
+        self.initialise_point(22, Color.Empty, num_pieces=0)
+        self.initialise_point(23, Color.Empty, num_pieces=0)
+        self.initialise_point(24, Color.White, num_pieces=2)
+        self.initialise_point(25, Color.Empty, num_pieces=0, white_bar=True)
 
     def simple_board_representation(self, board_to_print=None, header=False, count=-1):
-        if board_to_print is None:
-            board_to_print = self.board
-        if header:
-            print("\t", end="")
-            for p in range(0, 26):
-                print(f" {p:03}", end="")
-            print("")
-        # If count is >=0 then print it at start of line
-        if count >= 0:
-            print(f"{count:>3}\t", end="")
-        else:
-            print("\t", end="")
-        for p in board_to_print:
-            if p.colour == Color.Empty:
-                print(" ---", end="")
-            elif p.colour == Color.Red:
-                print(f" {p.num_pieces:2}R", end="")
+        if self.print_boards:  # Only print if print mode enabled
+            red_total = 0
+            white_total = 0
+            if board_to_print is None:
+                board_to_print = self.board
+            if header:
+                print("\t", end="")
+                for p in range(0, 26):
+                    print(f" {p:03}", end="")
+                print("\tTotals\tW\tR")
+            # If count is >=0 then print it at start of line
+            if count >= 0:
+                print(f"{count:>3}\t", end="")
             else:
-                print(f" {p.num_pieces:2}W", end="")
-        print("")
+                print("\t", end="")
+            for p in board_to_print:
+                if p.colour == Color.Empty:
+                    print(" ---", end="")
+                elif p.colour == Color.Red:
+                    print(f" {p.num_pieces:2}R", end="")
+                    red_total += p.num_pieces
+                else:
+                    print(f" {p.num_pieces:2}W", end="")
+                    white_total += p.num_pieces
+            print(f"\t\t\t{white_total}\t{red_total}")
+        else:
+            print("Board printing disabled.")
 
     def choose_first_player(self):
-        if np.random.rand() > 0.99999:
+        if np.random.rand() > 0.5:
             self.current_player = Color.Red
         else:
             self.current_player = Color.White
@@ -177,6 +163,8 @@ class Board:
             print("Red's turn!")
         else:
             raise Exception("Cannot change player when first player has not been initialised.")
+        # Make sure everything is cleared
+        self.clear_provisional_moves(0)
 
     def other_player_colour(self):
         if self.current_player == Color.Red:
@@ -186,7 +174,6 @@ class Board:
         else:
             raise Exception("Cannot identify 'other' player if the 'current player' is not specified.")
         return other_colour
-
 
     def play_direction(self):
         if self.current_player == Color.Red:
@@ -258,9 +245,9 @@ class Board:
         for _ in range(0, num_permutations):
             # print(f"Permutation {_}, dice rolls {dice_rolls}")
             self.get_board_from_dice_roll(dice_rolls, 0, move_tree, board_tree)
+            self.clear_provisional_moves(0)  # Make sure provisional board is reset
             dice_rolls.reverse()  # Only has effect if more than one permutation
 
-        self.clear_provisional_moves(0)
         return move_tree, board_tree
 
     def get_board_from_dice_roll(self, dice_rolls: List[int], roll_depth: int, move_tree: Tree, board_tree: Tree) -> None:
@@ -279,18 +266,18 @@ class Board:
                 # Have made a move
                 move_tree.add_child(Tree(new_move))
                 # Make move provisional
-                provisional_board = self.make_provisional_move(new_move, roll_depth)
-                board_tree.add_child(Tree(copy.deepcopy(provisional_board)))
+                self.make_provisional_move(new_move, roll_depth)
+                board_tree.add_child(Tree(copy.deepcopy(self.board_provisional[roll_depth])))
                 # Try next roll depth
                 self.get_board_from_dice_roll(dice_rolls, roll_depth + 1, move_tree.children[-1], board_tree.children[-1])
-                # Reset board
-                self.clear_provisional_moves(roll_depth)
+                # # Reset board
+                # self.clear_provisional_moves(roll_depth)
         else:
             # Check to see if player is allowed to bear off (all pieces in home area)
             can_bear_off = True  # Initially assume can bear off, until proven otherwise
             for n in range(7, 26):
-                point = self.absolute_point(n)
-                if self.board_provisional[roll_depth][point].colour == self.current_player:
+                abs_point = self.absolute_point(n)
+                if self.board_provisional[roll_depth][abs_point].colour == self.current_player:
                     # Player has piece outside of home area
                     can_bear_off = False
             if can_bear_off:
@@ -303,17 +290,17 @@ class Board:
                             # Have made a move
                             move_tree.add_child(Tree(new_move))
                             # Make move provisional
-                            provisional_board = self.make_provisional_move(new_move, roll_depth)
-                            board_tree.add_child(Tree(copy.deepcopy(provisional_board)))
+                            self.make_provisional_move(new_move, roll_depth)
+                            board_tree.add_child(Tree(copy.deepcopy(self.board_provisional[roll_depth])))
                             # Try next roll depth
                             self.get_board_from_dice_roll(dice_rolls, roll_depth + 1, move_tree.children[-1], board_tree.children[-1])
-                            # Reset board
-                            self.clear_provisional_moves(roll_depth)
+                            # # Reset board
+                            # self.clear_provisional_moves(roll_depth)
             else:
                 # Look through all other points and identify if they have a piece that can move
                 for i in range(1, 25):
                     point = self.board_provisional[roll_depth][i]
-                    if point.occupancy() > 0 and point.colour == self.current_player:
+                    if point.occupancy() > 0:
                         if point.colour == self.current_player:
                             # Point belongs to current player, so see if player can make move
                             new_move = self.get_point_move(i, roll, roll_depth, False)
@@ -321,16 +308,18 @@ class Board:
                                 # Have made a move
                                 move_tree.add_child(Tree(new_move))
                                 # Make move provisional
-                                provisional_board = self.make_provisional_move(new_move, roll_depth)
-                                board_tree.add_child(Tree(copy.deepcopy(provisional_board)))
+                                self.make_provisional_move(new_move, roll_depth)
+                                board_tree.add_child(Tree(copy.deepcopy(self.board_provisional[roll_depth])))
                                 # Try next roll depth
                                 self.get_board_from_dice_roll(dice_rolls, roll_depth + 1, move_tree.children[-1], board_tree.children[-1])
-                                # Reset board
-                                self.clear_provisional_moves(roll_depth)
+                                # # Reset board
+                                # self.clear_provisional_moves(roll_depth)
+
+        # Reset board
+        self.clear_provisional_moves(roll_depth)
 
     def get_point_move(self, point_index: int, roll_value: int, roll_depth: int, can_bear_off: bool) -> Tuple:
         move_info = None
-        # proposed_position = self.coerce_new_position(point_index, roll_value)
         proposed_position = self.where_will_roll_take_piece(point_index, roll_value)
         can_move = self.can_move_to_point(proposed_position, roll_depth, can_bear_off)
         if can_move:
@@ -339,13 +328,6 @@ class Board:
 
     def where_will_roll_take_piece(self, current_position: int, roll_value: int) -> int:
         new_position = current_position + self.play_direction() * roll_value
-        return new_position
-
-    def coerce_new_position(self, current_position: int, roll_value: int) -> int:
-        # Work out where you would be if you applied the roll to the piece at current position
-        # with checks to ensure that the new position is in range of the board.
-        new_position = current_position + self.play_direction() * roll_value
-        new_position = max(0, min(new_position, 25))
         return new_position
 
     def can_move_to_point(self, dest_point_index: int, roll_depth: int, can_bear_off: bool) -> bool:
@@ -366,29 +348,31 @@ class Board:
                 can_move = True
         return can_move
 
-    def make_provisional_move(self, provisional_move: Tuple[int, int], roll_depth: int) -> List[Point]:
+    def make_provisional_move(self, provisional_move: Tuple[int, int], roll_depth: int):
         start_index, dest_index = provisional_move
-        # TODO make code more efficient by working out board for this roll depth then just copying to deeper roll depths
-        for d in range(roll_depth, 4):
-            start_prov_point_d = self.board_provisional[d][start_index]
-            dest_prov_point_d = self.board_provisional[d][dest_index]
-            start_prov_point_d.num_pieces -= 1
-            if dest_index == self.home_point():
-                # Piece has been cleared from board so remove it from the board point tallies
-                pass
-            elif dest_prov_point_d.occupancy() == 0 or dest_prov_point_d.colour == self.current_player:
-                dest_prov_point_d.colour = self.current_player
-                dest_prov_point_d.num_pieces += 1
-            elif dest_prov_point_d.colour != self.current_player:
-                # Other player's one piece is being replaced by current player's piece
-                dest_prov_point_d.colour = self.current_player
-                # Move other player's piece to bar
-                self.board_provisional[d][self.bar_point(other_player=True)].num_pieces += 1
-                self.board_provisional[d][self.bar_point(other_player=True)].colour = self.other_player_colour()
-            # In any case, piece has moved from start location
-            if start_prov_point_d.occupancy() == 0:
-                start_prov_point_d.colour = Color.Empty
-        return copy.deepcopy(self.board_provisional[roll_depth])
+        start_prov_point_d = self.board_provisional[roll_depth][start_index]
+        dest_prov_point_d = self.board_provisional[roll_depth][dest_index]
+        start_prov_point_d.num_pieces -= 1
+        if dest_index == self.home_point():
+            # Piece has been cleared from board so remove it from the board point tallies
+            pass
+        elif dest_prov_point_d.occupancy() == 0 or dest_prov_point_d.colour == self.current_player:
+            dest_prov_point_d.colour = self.current_player
+            dest_prov_point_d.num_pieces += 1
+        elif dest_prov_point_d.colour != self.current_player:
+            # Other player's one piece is being replaced by current player's piece
+            dest_prov_point_d.colour = self.current_player
+            # Move other player's piece to bar
+            self.board_provisional[roll_depth][self.bar_point(other_player=True)].num_pieces += 1
+            self.board_provisional[roll_depth][self.bar_point(other_player=True)].colour = self.other_player_colour()
+        # In any case, piece has moved from start location
+        if start_prov_point_d.occupancy() == 0:
+            start_prov_point_d.colour = Color.Empty
+
+        # Copy to higher roll depths to make sure they're starting from the same baseline
+        for d in range(roll_depth + 1, 4):
+            self.board_provisional[d] = copy.deepcopy(self.board_provisional[roll_depth])
+
 
     def clear_provisional_moves(self, roll_depth):
         # Clear provisional moves due to current dice roll depth
@@ -462,7 +446,7 @@ class Board:
                 pieces_left = True
                 break
         if pieces_left:
-            print(f"Not game over for {self.current_player}")
+            print(f"{self.current_player} has not yet won")
         return not pieces_left
 
 
@@ -472,7 +456,10 @@ if __name__ == '__main__':
     for pp in b.board:
         print(f"Point {pp.index} is {pp.colour}, with {pp.occupancy()} pieces.")
     b.choose_first_player()
+    turn = 0
+
     while True:
+        turn += 1
         dice_rolls = b.roll_dice()
         print(f"Dice rolls: {dice_rolls}")
         move_tree, board_tree = b.get_possible_moves_from_dice(dice_rolls)
@@ -480,9 +467,9 @@ if __name__ == '__main__':
         print("Initial board:")
         b.simple_board_representation(header=True)
         print(f"Number of possible boards: {len(board_tree.get_list_of_leaves())}")
-        print("Potential boards:")
         possible_boards = board_tree.get_list_of_leaves()
         if len(board_tree.children) > 0:
+            print("Potential boards:")
             board_assessments = []
             for possible_board in possible_boards:
                 b.simple_board_representation(possible_board, count=len(board_assessments))
@@ -499,6 +486,7 @@ if __name__ == '__main__':
         else:
             b.change_player()
     print(f"Game over! Game won by {b.current_player}")
+    print(f"Game took {turn} turns")
 
 
         # print(leaf)
