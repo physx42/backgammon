@@ -26,7 +26,7 @@ class Agent:
         prediction = self.model(features[np.newaxis])
         return prediction[0].numpy().item()
 
-    def epsilon_greedy_action(self, networks_outputs: List[float]) -> int:
+    def epsilon_greedy_action(self, networks_outputs: List[float], print_outputs: bool) -> int:
         if np.random.rand() < self.epsilon:
             # Explore
             chosen_index = np.random.randint(0, len(networks_outputs))
@@ -34,6 +34,10 @@ class Agent:
             # Exploit
             possible_indices = np.argwhere(networks_outputs == np.amax(networks_outputs)).flatten().tolist()
             chosen_index = np.random.choice(possible_indices)
+        if print_outputs:
+            print("Network outputs:", end="")
+            print([f"{x:.5f}" for x in networks_outputs])
+            print(f"Chosen action: {chosen_index}")
         return chosen_index
 
     def greedy_action(self, networks_outputs: List[float]) -> int:
