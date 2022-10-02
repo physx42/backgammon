@@ -3,7 +3,6 @@
 from enum import Enum
 import numpy as np
 from typing import List, Tuple
-import time
 import copy
 from agent import Agent
 

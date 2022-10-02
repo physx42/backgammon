@@ -66,7 +66,7 @@ class Agent:
 
 
 if __name__ == '__main__':
-    a = Agent(0.1, 0.01, 0.1, 0.95, 10)
+    a = Agent(0.1, 0.01, 0.7, 10)
     features = np.random.rand(10)
     print(features)
     print(a.assess_features(features))
