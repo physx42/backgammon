@@ -1,5 +1,5 @@
 # game
-
+import copy
 from typing import List
 from board import Board
 from colour import Colour
@@ -8,6 +8,7 @@ from random_agent import RandomAgent
 import numpy as np
 import logging
 import matplotlib.pyplot as plt
+import time
 
 class Game:
     def __init__(self, player1, player2):
@@ -19,6 +20,7 @@ class Game:
         self.features_log = [None, None]
         self.game_count = 0
         self.win_counts = [0, 0]
+        self.game_len_history = []
         self.win_history = []  # Will record ratio of games won by player 0 by game
 
     def choose_first_player(self):
@@ -34,9 +36,9 @@ class Game:
     def next_player(self):
         self.pID = 1 - self.pID
         self.b.set_player(self.player_colours[self.pID])
+        self.update_features_log()
         self.step += 1
         logging.info(f"Turn {self.step}: {self.player_colours[self.pID]}")
-        self.update_features_log()
 
     def update_features_log(self):
         self.features_log[self.pID] = self.b.calculate_board_features(self.b.board)
@@ -47,7 +49,9 @@ class Game:
         while True:
             dice_rolls = self.b.roll_dice()
             logging.info(f"Dice rolls: {dice_rolls}")
+            start_move_search = time.time()
             move_tree, board_tree = self.b.get_possible_moves_from_dice(dice_rolls)
+            print(f"Move search took {time.time() - start_move_search} seconds.")
             self.b.print_move_tree(move_tree)
             self.b.simple_board_representation("Initial board:", header=True)
             possible_boards = board_tree.get_list_of_leaves(top=True)
@@ -74,6 +78,7 @@ class Game:
                 self.game_count += 1
                 self.win_counts[self.pID] += 1
                 self.win_history.append(self.win_counts[0] / (self.win_counts[0] + self.win_counts[1]))
+                self.game_len_history.append(self.step)
                 print(f"Game {self.game_count} ended after {self.step} steps (win ratio: {self.win_history[-1]:.4f}).")
                 break
             else:
@@ -83,11 +88,23 @@ class Game:
 if __name__ == '__main__':
     logging.basicConfig(level=logging.WARN, format="%(message)s")
     common_TD_agent = TDagent()
-    g = Game(common_TD_agent, RandomAgent())
+    g = Game(common_TD_agent, common_TD_agent)
     for episode in range(0, 5000):
-        g.play_game(simple_board=True)
+        g.play_game(simple_board=False)
+    # plt.plot(g.win_history)
+    # plt.show()
+    train_win_history = copy.deepcopy(g.win_history)
+    train_len_history = copy.deepcopy(g.game_len_history)
 
+    g = Game(common_TD_agent, RandomAgent())
+    for episode in range(0, 200):
+        g.play_game(simple_board=False)
+    plt.plot(train_win_history)
     plt.plot(g.win_history)
+    plt.show()
+
+    plt.plot(train_len_history)
+    plt.plot(g.game_len_history)
     plt.show()
 
 
