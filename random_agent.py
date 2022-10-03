@@ -10,6 +10,6 @@ class RandomAgent:
         chosen_board_index = np.random.randint(0, len(states))
         return chosen_board_index
 
-    def update_model(self, previous_state, new_state, reward):
+    def update_model(self, previous_state, new_state, reward, episode_end):
         pass
 

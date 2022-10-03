@@ -44,6 +44,7 @@ class Game:
         self.features_log[self.pID] = self.b.calculate_board_features(self.b.board)
 
     def play_game(self, simple_board=False):
+        start_game_time = time.time()
         self.b = Board(True, simple_board)
         self.choose_first_player()
         while True:
@@ -51,7 +52,7 @@ class Game:
             logging.info(f"Dice rolls: {dice_rolls}")
             start_move_search = time.time()
             move_tree, board_tree = self.b.get_possible_moves_from_dice(dice_rolls)
-            print(f"Move search took {time.time() - start_move_search} seconds.")
+            logging.debug(f"Move search took {time.time() - start_move_search} seconds.")
             self.b.print_move_tree(move_tree)
             self.b.simple_board_representation("Initial board:", header=True)
             possible_boards = board_tree.get_list_of_leaves(top=True)
@@ -67,10 +68,12 @@ class Game:
                 self.b.enact_provisional_move(possible_boards[chosen_action])
                 if self.b.game_won(self.player_colours[self.pID]):
                     reward = 1
+                    episode_end = True
                 else:
                     reward = 0
+                    episode_end = False
                 self.players[self.pID].update_model(
-                        self.features_log[self.pID], possible_features[chosen_action], reward)
+                        self.features_log[self.pID], possible_features[chosen_action], reward, episode_end)
 
             if reward == 1:
                 # Game ended
@@ -79,7 +82,7 @@ class Game:
                 self.win_counts[self.pID] += 1
                 self.win_history.append(self.win_counts[0] / (self.win_counts[0] + self.win_counts[1]))
                 self.game_len_history.append(self.step)
-                print(f"Game {self.game_count} ended after {self.step} steps (win ratio: {self.win_history[-1]:.4f}).")
+                print(f"Game: {self.game_count}\tSteps: {self.step}\tElapsed:{time.time() - start_game_time}\tWin ratio: {self.win_history[-1]:.4f}")
                 break
             else:
                 self.next_player()
@@ -89,16 +92,15 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.WARN, format="%(message)s")
     common_TD_agent = TDagent()
     g = Game(common_TD_agent, common_TD_agent)
-    for episode in range(0, 5000):
-        g.play_game(simple_board=False)
-    # plt.plot(g.win_history)
-    # plt.show()
+    for episode in range(0, 500):
+        g.play_game(simple_board=True)
+
     train_win_history = copy.deepcopy(g.win_history)
     train_len_history = copy.deepcopy(g.game_len_history)
 
     g = Game(common_TD_agent, RandomAgent())
     for episode in range(0, 200):
-        g.play_game(simple_board=False)
+        g.play_game(simple_board=True)
     plt.plot(train_win_history)
     plt.plot(g.win_history)
     plt.show()

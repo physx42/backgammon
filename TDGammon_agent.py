@@ -14,8 +14,10 @@ class TDagent:
 
         return chosen_board_index
 
-    def update_model(self, previous_state, new_state, reward):
+    def update_model(self, previous_state, new_state, reward, episode_end):
         self.agent.update_model(previous_state, new_state, reward)
+        if episode_end:
+            self.agent.reset_trace()
 
 
 
