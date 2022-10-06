@@ -45,7 +45,7 @@ class Game:
             rolls.append(roll)
         return rolls
 
-    def play_game(self, simple_board=False):
+    def play_game(self, simple_board):
         start_game_time = time.time()
         self.board = Board(simple_board)
         self.choose_first_player()
@@ -77,7 +77,7 @@ class Game:
                 if max_move is not None:
                     self.board.perform_move(*max_move, self.pID)
                     logging.debug(
-                        f"Board state: X: (b{g.board.x_bar}){g.board.x_board}(r{g.board.x_removed}), O: (b{g.board.o_bar}){g.board.o_board} ({g.board.o_removed}). ")
+                        f"Board state: X: (b{self.board.x_bar}){self.board.x_board}(r{self.board.x_removed}), O: (b{self.board.o_bar}){self.board.o_board} ({self.board.o_removed}). ")
 
                     if self.board.game_won(self.pID):
                         reward = 1
@@ -113,14 +113,14 @@ if __name__ == '__main__':
     common_TD_agent = TDagent(0.1, 0.7, 196)
     g = Game(common_TD_agent, RandomAgent())
     for episode in range(0, 1000):
-        g.play_game(simple_board=True)
+        g.play_game(simple_board=False)
 
     train_win_history = copy.deepcopy(g.win_history)
     train_len_history = copy.deepcopy(g.game_len_history)
 
     g = Game(common_TD_agent, RandomAgent())
     for episode in range(0, 00):
-        g.play_game(simple_board=True)
+        g.play_game(simple_board=False)
     plt.plot(train_win_history)
     plt.plot(g.win_history)
     plt.show()

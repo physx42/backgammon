@@ -12,7 +12,7 @@ NUM_POINTS = 24
 
 
 class Board:
-    def __init__(self, simple_board=False):
+    def __init__(self, simple_board):
         self.o_board = self.generate_board_list(simple_board)
         self.x_board = self.generate_board_list(simple_board)
         self.o_bar = 0
