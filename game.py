@@ -2,7 +2,6 @@
 import copy
 from typing import List
 from board import Board
-from colour import Colour
 from TDGammon_agent import TDagent
 from random_agent import RandomAgent
 import numpy as np
@@ -11,13 +10,11 @@ import matplotlib.pyplot as plt
 import time
 
 class Game:
-    def __init__(self, player1, player2):
-        self.b = None
+    def __init__(self, player1, player2, simple_board=False):
         self.players = [player1, player2]
+        self.board = None
         self.pID = 0
-        self.player_colours = [Colour.Red, Colour.White]
         self.step = 0
-        self.features_log = [None, None]
         self.game_count = 0
         self.win_counts = [0, 0]
         self.game_len_history = []
@@ -29,60 +26,83 @@ class Game:
             self.pID = 0
         else:
             self.pID = 1
-        self.b.set_player(self.player_colours[self.pID])
-        self.update_features_log()
         logging.info(f"First player is {self.pID}")
 
     def next_player(self):
         self.pID = 1 - self.pID
-        self.b.set_player(self.player_colours[self.pID])
-        self.update_features_log()
         self.step += 1
-        logging.info(f"Turn {self.step}: {self.player_colours[self.pID]}")
+        logging.info(f"Turn {self.step}: Player {self.pID}")
 
-    def update_features_log(self):
-        self.features_log[self.pID] = self.b.calculate_board_features(self.b.board)
+    def roll_dice(self) -> List[int]:
+        rolls = []
+        for n in range(0, 2):
+            roll = np.random.randint(1, 7)
+            rolls.append(roll)
+        if rolls[0] == rolls[1]:
+            # Have rolled a double
+            roll = rolls[0]
+            rolls.append(roll)
+            rolls.append(roll)
+        return rolls
 
     def play_game(self, simple_board=False):
         start_game_time = time.time()
-        self.b = Board(True, simple_board)
+        self.board = Board(simple_board)
         self.choose_first_player()
         while True:
-            dice_rolls = self.b.roll_dice()
-            logging.info(f"Dice rolls: {dice_rolls}")
-            start_move_search = time.time()
-            move_tree, board_tree = self.b.get_possible_moves_from_dice(dice_rolls)
-            logging.debug(f"Move search took {time.time() - start_move_search} seconds.")
-            self.b.print_move_tree(move_tree)
-            self.b.simple_board_representation("Initial board:", header=True)
-            possible_boards = board_tree.get_list_of_leaves(top=True)
-            logging.info(f"{len(possible_boards)} possible moves")
+            player_agent = self.players[self.pID]
+            rolls = self.roll_dice()
+            logging.info(f"Dice rolls: {rolls}")
+            max_move = None
+            while len(rolls) > 0:
+                logging.debug(f"Unused rolls: {rolls}")
+                move_search_time = time.time()
+                permitted_moves = self.board.permitted_moves(rolls, self.pID)
+                logging.debug(f"Move search took {time.time() - move_search_time} seconds.")
+                logging.info(f"{len(permitted_moves)} possible moves: {permitted_moves}")
+                current_state = self.board.encode_features(self.pID)
+                max_value = -np.inf
+                max_move = None
+                move_eval_time = time.time()
+                for move in permitted_moves:
+                    temp_board = copy.deepcopy(self.board)
+                    temp_board.perform_move(*move, self.pID)
+                    new_state = temp_board.encode_features(self.pID)
+                    value = player_agent.assess_features(new_state)
+                    # Find optimal policy. Note that due to randomness of dice rolls, epsilon-greedy is not required.
+                    if value > max_value:
+                        max_value = value
+                        max_move = move
+                logging.debug(f"Move evaluation took {move_eval_time - time.time()} seconds")
+                if max_move is not None:
+                    self.board.perform_move(*max_move, self.pID)
+                    logging.debug(
+                        f"Board state: X: (b{g.board.x_bar}){g.board.x_board}(r{g.board.x_removed}), O: (b{g.board.o_bar}){g.board.o_board} ({g.board.o_removed}). ")
 
-            reward = 0  # default
-            if len(board_tree.children) > 0:
-                possible_features = []
-                for board in possible_boards:
-                    possible_features.append(self.b.calculate_board_features(board))
-                    self.b.simple_board_representation("", board, count=len(possible_features))
-                chosen_action = self.players[self.pID].choose_action(possible_features)
-                self.b.enact_provisional_move(possible_boards[chosen_action])
-                if self.b.game_won(self.player_colours[self.pID]):
-                    reward = 1
-                    episode_end = True
+                    if self.board.game_won(self.pID):
+                        reward = 1
+                        episode_end = True
+                        break
+                    else:
+                        reward = 0
+                        episode_end = False
+                    player_agent.update_model(current_state, new_state, reward, episode_end)
+                    del rolls[rolls.index(max_move[1])]
                 else:
                     reward = 0
                     episode_end = False
-                self.players[self.pID].update_model(
-                        self.features_log[self.pID], possible_features[chosen_action], reward, episode_end)
+                    break  # Couldn't make a move so go to next player
+                new_state = self.board.encode_features(self.pID)
 
             if reward == 1:
                 # Game ended
-                logging.info(f"Player {self.pID} ({self.player_colours[self.pID]}) won!")
+                logging.info(f"Player {self.pID} won!")
                 self.game_count += 1
                 self.win_counts[self.pID] += 1
                 self.win_history.append(self.win_counts[0] / (self.win_counts[0] + self.win_counts[1]))
                 self.game_len_history.append(self.step)
-                print(f"Game: {self.game_count}\tSteps: {self.step}\tElapsed:{time.time() - start_game_time}\tWin ratio: {self.win_history[-1]:.4f}")
+                print(f"Game: {self.game_count}\tSteps: {self.step}\tElapsed:{time.time() - start_game_time:.4f}s\t"
+                      f"Winner: Player {self.pID}\tWin ratio: {self.win_history[-1]:.4f}")
                 break
             else:
                 self.next_player()
@@ -90,16 +110,16 @@ class Game:
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.WARN, format="%(message)s")
-    common_TD_agent = TDagent()
-    g = Game(common_TD_agent, common_TD_agent)
-    for episode in range(0, 500):
+    common_TD_agent = TDagent(0.1, 0.7, 196)
+    g = Game(common_TD_agent, RandomAgent())
+    for episode in range(0, 100):
         g.play_game(simple_board=True)
 
     train_win_history = copy.deepcopy(g.win_history)
     train_len_history = copy.deepcopy(g.game_len_history)
 
     g = Game(common_TD_agent, RandomAgent())
-    for episode in range(0, 200):
+    for episode in range(0, 100):
         g.play_game(simple_board=True)
     plt.plot(train_win_history)
     plt.plot(g.win_history)

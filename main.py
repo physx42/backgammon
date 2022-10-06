@@ -1,13 +1,9 @@
 # backgammon
 
-from agent import Agent
 from board import Board
 from colour import Colour
 
 
-class Game:
-    def __init__(self):
-        pass
 
 
 if __name__ == '__main__':
