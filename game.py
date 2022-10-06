@@ -112,14 +112,14 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.WARN, format="%(message)s")
     common_TD_agent = TDagent(0.1, 0.7, 196)
     g = Game(common_TD_agent, RandomAgent())
-    for episode in range(0, 100):
+    for episode in range(0, 1000):
         g.play_game(simple_board=True)
 
     train_win_history = copy.deepcopy(g.win_history)
     train_len_history = copy.deepcopy(g.game_len_history)
 
     g = Game(common_TD_agent, RandomAgent())
-    for episode in range(0, 100):
+    for episode in range(0, 00):
         g.play_game(simple_board=True)
     plt.plot(train_win_history)
     plt.plot(g.win_history)
