@@ -101,8 +101,11 @@ class Game:
                 self.win_counts[self.pID] += 1
                 self.win_history.append(self.win_counts[0] / (self.win_counts[0] + self.win_counts[1]))
                 self.game_len_history.append(self.step)
-                print(f"Game: {self.game_count}\tSteps: {self.step}\tElapsed:{time.time() - start_game_time:.4f}s\t"
-                      f"Winner: Player {self.pID}\tWin ratio: {self.win_history[-1]:.4f}")
+                total_game_time = time.time() - start_game_time
+                steps_per_second = self.step / total_game_time
+                print(f"Game: {self.game_count}\tSteps: {self.step}\tElapsed:{total_game_time:.4f}s\t"
+                      f"Secs per step:{steps_per_second:.1f}\tWinner: Player {self.pID}\t"
+                      f"Win ratio: {self.win_history[-1]:.4f}")
                 break
             else:
                 self.next_player()
@@ -115,8 +118,8 @@ if __name__ == '__main__':
     # Offer to load existing model
     response = input("Do you want to load a checkpoint (y/n): ")
     if str(response).upper() == "Y":
-        response = input("Specify directory name: ")
-        common_TD_agent.load(response)
+        # response = input("Specify checkpoint name (TDGammon): ")
+        common_TD_agent.load("TDGammon")
 
     # Ask for length
     response = input("How many training episodes: ")
