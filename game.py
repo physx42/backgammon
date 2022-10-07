@@ -111,9 +111,26 @@ class Game:
 if __name__ == '__main__':
     logging.basicConfig(level=logging.WARN, format="%(message)s")
     common_TD_agent = TDagent(0.1, 0.7, 196)
+
+    # Offer to load existing model
+    response = input("Do you want to load a checkpoint (y/n): ")
+    if str(response).upper() == "Y":
+        response = input("Specify directory name: ")
+        common_TD_agent.load(response)
+
+    # Ask for length
+    response = input("How many training episodes: ")
+    num_training_episodes = int(response)
+    response = input("How often to save checkpoints: ")
+    checkpoint_period = int(response)
+    response = input("How many test episodes: ")
+    num_test_episodes = int(response)
+
     g = Game(common_TD_agent, common_TD_agent)
-    for episode in range(0, 5000):
-        g.play_game(simple_board=False)
+    for episode in range(0, num_training_episodes):
+        g.play_game(simple_board=True)
+        if episode % checkpoint_period == 0 and episode > 1:
+            common_TD_agent.save()
 
     train_win_history = copy.deepcopy(g.win_history)
     train_len_history = copy.deepcopy(g.game_len_history)
@@ -121,15 +138,14 @@ if __name__ == '__main__':
     print("Starting test phase versus RandomAgent(). Learning disabled.")
     common_TD_agent.disable_learning()
     g = Game(common_TD_agent, RandomAgent())
-    for episode in range(0, 1000):
-        g.play_game(simple_board=False)
-    plt.plot(train_win_history)
-    plt.plot(g.win_history)
+    for episode in range(0, num_test_episodes):
+        g.play_game(simple_board=True)
+    plt.plot(train_win_history, label="Training")
+    plt.plot(g.win_history, label="Testing")
+    plt.plot([0.5] * num_training_episodes, ":")
+    plt.legend()
     plt.show()
 
-    plt.plot(train_len_history)
-    plt.plot(g.game_len_history)
-    plt.show()
 
 
 

@@ -2,6 +2,8 @@ from typing import List
 import numpy as np
 import tensorflow as tf
 import logging
+import os
+import datetime
 
 
 class TDagent:
@@ -54,6 +56,28 @@ class TDagent:
     def disable_learning(self):
         self.learning_enabled = False
 
+    def save(self):
+        if not os.path.exists('checkpoint'):
+            os.mkdir('checkpoint')
+
+        directory = 'checkpoint\my_checkpoint'
+        if not os.path.exists(directory):
+            os.mkdir(directory)
+
+        # ckpt = tf.train.Checkpoint(model=self.model)
+        # path = ckpt.save(directory)
+        self.model.save_weights(directory)
+
+        logging.info("saving checkpoint [path = %s]", directory)
+
+        return directory
+
+    def load(self, path):
+        logging.info("loading checkpoint [path = %s]", path)
+
+        # ckpt = tf.train.Checkpoint(model=self.model)
+        # ckpt.restore(path)
+        self.model.load_weights(path)
 
 if __name__ == '__main__':
     a = TDagent(0.1, 0.01, 0.7, 10)
