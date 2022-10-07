@@ -31,6 +31,7 @@ class TDagent:
         prediction = self.model(state)
         return tf.reduce_sum(prediction)
 
+    @tf.function
     def update_model(self, previous_state, new_state, reward, episode_end):
         if self.learning_enabled:
             with tf.GradientTape() as tape:
