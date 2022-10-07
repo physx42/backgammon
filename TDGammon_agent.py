@@ -56,28 +56,23 @@ class TDagent:
     def disable_learning(self):
         self.learning_enabled = False
 
-    def save(self):
-        if not os.path.exists('checkpoint'):
-            os.mkdir('checkpoint')
-
-        directory = 'checkpoint\my_checkpoint'
+    def save(self, checkpoint_name):
+        directory = "checkpoints"
         if not os.path.exists(directory):
             os.mkdir(directory)
 
-        # ckpt = tf.train.Checkpoint(model=self.model)
-        # path = ckpt.save(directory)
-        self.model.save_weights(directory)
+        path = directory + "/" + checkpoint_name
+        self.model.save_weights(path)
 
-        logging.info("saving checkpoint [path = %s]", directory)
+        logging.info("saving checkpoint [path = %s]", path)
 
-        return directory
+        return path
 
-    def load(self, path):
-        logging.info("loading checkpoint [path = %s]", path)
+    def load(self, checkpoint_name):
+        logging.info("loading checkpoint [path = %s]", checkpoint_name)
 
-        # ckpt = tf.train.Checkpoint(model=self.model)
-        # ckpt.restore(path)
-        self.model.load_weights(path)
+        self.model.load_weights("checkpoints/" + checkpoint_name)
+
 
 if __name__ == '__main__':
     a = TDagent(0.1, 0.01, 0.7, 10)

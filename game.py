@@ -130,7 +130,7 @@ if __name__ == '__main__':
     for episode in range(0, num_training_episodes):
         g.play_game(simple_board=True)
         if episode % checkpoint_period == 0 and episode > 1:
-            common_TD_agent.save()
+            common_TD_agent.save("TDGammon")
 
     train_win_history = copy.deepcopy(g.win_history)
     train_len_history = copy.deepcopy(g.game_len_history)
