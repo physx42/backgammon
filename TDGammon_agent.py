@@ -13,6 +13,7 @@ class TDagent:
         self.LAMBDA = LAMBDA
 
         self.trace = []
+        self.learning_enabled = True
 
     def reset_trace(self):
         for i in range(len(self.trace)):
@@ -29,30 +30,29 @@ class TDagent:
         return tf.reduce_sum(prediction)
 
     def update_model(self, previous_state, new_state, reward, episode_end):
-        with tf.GradientTape() as tape:
-            value_next = self.assess_features(new_state)
-        trainable_vars = self.model.trainable_variables
-        grads = tape.gradient(value_next, trainable_vars)
+        if self.learning_enabled:
+            with tf.GradientTape() as tape:
+                value_next = self.assess_features(new_state)
+            trainable_vars = self.model.trainable_variables
+            grads = tape.gradient(value_next, trainable_vars)
 
-        if len(self.trace) == 0:
-            for grad in grads:
-                self.trace.append(tf.Variable(tf.zeros(grad.get_shape()), trainable=False))
-        td_error = tf.reduce_sum(reward + value_next - self.assess_features(previous_state))
-        for i in range(len(grads)):
-            self.trace[i].assign((self.LAMBDA * self.trace[i]) + grads[i])
-            grad_trace = self.alpha * td_error * self.trace[i]
-            self.model.trainable_variables[i].assign_add(grad_trace)
+            if len(self.trace) == 0:
+                for grad in grads:
+                    self.trace.append(tf.Variable(tf.zeros(grad.get_shape()), trainable=False))
+            td_error = tf.reduce_sum(reward + value_next - self.assess_features(previous_state))
+            for i in range(len(grads)):
+                self.trace[i].assign((self.LAMBDA * self.trace[i]) + grads[i])
+                grad_trace = self.alpha * td_error * self.trace[i]
+                self.model.trainable_variables[i].assign_add(grad_trace)
 
-        if episode_end:
-            self.reset_trace()
+            if episode_end:
+                self.reset_trace()
 
-    def choose_action(self, states: List[List]):
-        assessments = []
-        for state in states:
-            assessments.append(self.assess_features(state).numpy().item())
-        chosen_board_index = self.epsilon_greedy_action(assessments)
+    def enable_learning(self):
+        self.learning_enabled = True
 
-        return chosen_board_index
+    def disable_learning(self):
+        self.learning_enabled = False
 
 
 if __name__ == '__main__':

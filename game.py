@@ -111,15 +111,17 @@ class Game:
 if __name__ == '__main__':
     logging.basicConfig(level=logging.WARN, format="%(message)s")
     common_TD_agent = TDagent(0.1, 0.7, 196)
-    g = Game(common_TD_agent, RandomAgent())
-    for episode in range(0, 1000):
+    g = Game(common_TD_agent, common_TD_agent())
+    for episode in range(0, 5000):
         g.play_game(simple_board=False)
 
     train_win_history = copy.deepcopy(g.win_history)
     train_len_history = copy.deepcopy(g.game_len_history)
 
+    print("Starting test phase versus RandomAgent(). Learning disabled.")
+    common_TD_agent.disable_learning()
     g = Game(common_TD_agent, RandomAgent())
-    for episode in range(0, 00):
+    for episode in range(0, 500):
         g.play_game(simple_board=False)
     plt.plot(train_win_history)
     plt.plot(g.win_history)
