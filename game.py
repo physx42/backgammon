@@ -104,7 +104,7 @@ class Game:
                 total_game_time = time.time() - start_game_time
                 steps_per_second = self.step / total_game_time
                 print(f"Game: {self.game_count}\tSteps: {self.step}\tElapsed:{total_game_time:.4f}s\t"
-                      f"Secs per step:{steps_per_second:.1f}\tWinner: Player {self.pID}\t"
+                      f"Steps per sec:{steps_per_second:.1f}\tWinner: Player {self.pID}\t"
                       f"Win ratio: {self.win_history[-1]:.4f}")
                 break
             else:
