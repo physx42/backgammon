@@ -9,6 +9,7 @@ import logging
 import matplotlib.pyplot as plt
 import time
 
+
 class Game:
     def __init__(self, player1, player2, simple_board=False):
         self.players = [player1, player2]
@@ -76,9 +77,8 @@ class Game:
                 logging.debug(f"Move evaluation took {move_eval_time - time.time()} seconds")
                 if max_move is not None:
                     self.board.perform_move(*max_move, self.pID)
-                    logging.debug(
-                        f"Board state: X: (b{self.board.x_bar}){self.board.x_board}(r{self.board.x_removed}), O: (b{self.board.o_bar}){self.board.o_board} ({self.board.o_removed}). ")
-
+                    logging.debug(f"Board state: X: (b{self.board.x_bar}){self.board.x_board}(r{self.board.x_removed}),"
+                                  f" O: (b{self.board.o_bar}){self.board.o_board} ({self.board.o_removed}). ")
                     if self.board.game_won(self.pID):
                         reward = 1
                         episode_end = True
@@ -115,11 +115,17 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.WARN, format="%(message)s")
     common_TD_agent = TDagent(0.1, 0.7, 196)
 
+    # Ask what board configuration to use
+    response = input("Use full backgammon board (y/n)?: ")
+    use_simple_board = (str(response).upper() == "N")
     # Offer to load existing model
     response = input("Do you want to load a checkpoint (y/n): ")
     if str(response).upper() == "Y":
         # response = input("Specify checkpoint name (TDGammon): ")
-        common_TD_agent.load("TDGammon")
+        if use_simple_board:
+            common_TD_agent.load("TDGammon_simple")
+        else:
+            common_TD_agent.load("TDGammon")
 
     # Ask for length
     response = input("How many training episodes: ")
@@ -130,21 +136,27 @@ if __name__ == '__main__':
     num_test_episodes = int(response)
 
     g = Game(common_TD_agent, common_TD_agent)
-    for episode in range(0, num_training_episodes):
-        g.play_game(simple_board=True)
+    g_test = Game(common_TD_agent, RandomAgent())
+    for episode in range(1, num_training_episodes + 1):
+        g.play_game(use_simple_board)
         if episode % checkpoint_period == 0 and episode > 1:
-            common_TD_agent.save("TDGammon")
+            print("Saving checkpoint")
+            if use_simple_board:
+                common_TD_agent.save("TDGammon_simple")
+            else:
+                common_TD_agent.save("TDGammon")
+            print("Starting test phase versus RandomAgent(). Learning disabled.")
+            common_TD_agent.disable_learning()
+            for test_episode in range(0, num_test_episodes):
+                g_test.play_game(use_simple_board)
+            print("Resuming training.")
+            common_TD_agent.enable_learning()
 
     train_win_history = copy.deepcopy(g.win_history)
     train_len_history = copy.deepcopy(g.game_len_history)
 
-    print("Starting test phase versus RandomAgent(). Learning disabled.")
-    common_TD_agent.disable_learning()
-    g = Game(common_TD_agent, RandomAgent())
-    for episode in range(0, num_test_episodes):
-        g.play_game(simple_board=True)
     plt.plot(train_win_history, label="Training")
-    plt.plot(g.win_history, label="Testing")
+    plt.plot(g_test.win_history, label="Testing")
     plt.plot([0.5] * num_training_episodes, ":")
     plt.legend()
     plt.show()
