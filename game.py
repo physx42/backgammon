@@ -28,11 +28,13 @@ class Game:
         else:
             self.pID = 1
         logging.info(f"First player is {self.pID}")
+        return self.pID
 
     def next_player(self):
         self.pID = 1 - self.pID
         self.step += 1
         logging.info(f"Turn {self.step}: Player {self.pID}")
+        self.pID
 
     def roll_dice(self) -> List[int]:
         rolls = []

@@ -7,8 +7,7 @@ import datetime
 
 
 class TDagent:
-
-    def __init__(self, alpha, LAMBDA, num_features):
+    def __init__(self, alpha=0.1, LAMBDA=0.7, num_features=196):
         self.num_features = num_features
         self.model = self.generate_model()
         self.alpha = alpha
