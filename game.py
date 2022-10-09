@@ -34,7 +34,11 @@ class Game:
         self.pID = 1 - self.pID
         self.step += 1
         logging.info(f"Turn {self.step}: Player {self.pID}")
-        self.pID
+
+    def set_player(self, player_num):
+        self.pID = player_num
+        self.step += 1
+        logging.info(f"Turn {self.step}: Player {self.pID} (externally set)")
 
     def roll_dice(self) -> List[int]:
         rolls = []
