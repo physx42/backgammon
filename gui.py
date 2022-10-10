@@ -220,17 +220,18 @@ def draw_piece(player_point: int, point_occupancy: int, player: int, is_selected
     return sprite
 
 
-def draw_die(player: int, face_value: int, center: List[float], size: float):
-    if len(center) != 2:
-        logging.error("draw_die() called with center defined other than as [x,y]")
-    # Draws dice face with defined centre and width.
-    # logging.debug(f"Showing die with center: {center} with width {size}.")
+def draw_die(player: int, face_value: int, die_index: int):
+    # Specify die position and colour
     if player == PLAYER_X:
+        center = [TRI_WIDTH * (1 + die_index), RES_Y * 0.55]
         colour = COLOUR_X
     else:
+        center = [TRI_WIDTH * (8 + die_index), RES_Y * 0.55]
         colour = COLOUR_O
+    # Die size
+    width = TRI_WIDTH / 2
     # Draw cube surface
-    face = pygame.draw.rect(screen, colour, [center[0] - size/2, center[1] - size/2, size, size])
+    face = pygame.draw.rect(screen, colour, [center[0] - width/2, center[1] - width/2, width, width])
     # Show face value
     font = pygame.font.SysFont(None, int(RES_Y / 20))
     text = font.render(str(face_value), True, BLACK)
@@ -242,17 +243,9 @@ def draw_die(player: int, face_value: int, center: List[float], size: float):
 def roll_dice(num_die: int, player: int) -> List[int]:
     logging.debug(f"Rolling {num_die} dice for player {player}")
     roll_time = []
-    centers = []
-    die_width = TRI_WIDTH / 2
     for n in range(0, num_die):
         # Choose random amount of time for the die to take to settle
         roll_time.append(1.5 + random.random() * 2)
-        # Specify die position
-        if player == PLAYER_X:
-            center = [TRI_WIDTH * (1 + n), RES_Y * 0.55]
-        else:
-            center = [TRI_WIDTH * (8 + n), RES_Y * 0.55]
-        centers.append(center)
 
     start_time = time.time()
     dice_stopped = [False] * num_die
@@ -274,7 +267,7 @@ def roll_dice(num_die: int, player: int) -> List[int]:
             if not dice_stopped[n]:
                 if random.random() > elapsed / roll_time[n]:
                     face_value[n] = random.randint(1, 6)
-                    draw_die(player, face_value[n], centers[n], die_width)
+                    draw_die(player, face_value[n], n)
         clock.tick(10)
     logging.info(f"Value(s) rolled: {' and '.join(str(v) for v in face_value)}")
     return face_value
@@ -323,21 +316,25 @@ def draw_declare_starter(player: int) -> None:
     time.sleep(MSG_DISPLAY_TIME)
 
 
-def draw_pieces_for_player(player: int, board: List[int]) -> List[Piece]:
+def draw_pieces_for_player(player: int, board: List[int], bar: int, removed: int) -> List[Piece]:
     pieces = []
     for p in range(0, len(board)):
         for n in range(0, board[p]):
             pieces.append(Piece(draw_piece(p, n + 1, player), p, n + 1, player))
+    for n in range(0, bar):
+        pieces.append(Piece(draw_piece(BAR_INDEX, n + 1, player), BAR_INDEX, n + 1, player))
+    for n in range(0, removed):
+        pieces.append(Piece(draw_piece(HOME_INDEX, n + 1, player), HOME_INDEX, n + 1, player))
     return pieces
 
 
-def draw_board_and_pieces(board_x: List[int], board_o: List[int]):
+def draw_board_and_pieces(board_x: List[int], board_o: List[int], bar_x: int, bar_o: int, removed_x: int, removed_o: int):
     logging.info(f"Drawing board and pieces")
     # Draw empty board
     triangles = draw_board()
     # Populate pieces according to starting boards
-    pieces_x = draw_pieces_for_player(PLAYER_X, board_x)
-    pieces_o = draw_pieces_for_player(PLAYER_O, board_o)
+    pieces_x = draw_pieces_for_player(PLAYER_X, board_x, bar_x, removed_x)
+    pieces_o = draw_pieces_for_player(PLAYER_O, board_o, bar_o, removed_o)
     logging.debug(f"Drew {len(pieces_x)} X pieces and {len(pieces_o)} O pieces")
     return pieces_x, pieces_o, triangles
 
@@ -437,7 +434,7 @@ while not done:
     elif game_state == GameState.START_GAME:
         # Populate initial board
         game.generate_starting_board(False)
-        pieces_x, pieces_o, point_tris = draw_board_and_pieces(game.board.x_board, game.board.o_board)
+        pieces_x, pieces_o, point_tris = draw_board_and_pieces(game.board.x_board, game.board.o_board, 0, 0, 0, 0)
         game_state = GameState.PLAYER_ROLL_DICE
     elif game_state == GameState.PLAYER_ROLL_DICE:
         # Roll dice
@@ -445,6 +442,9 @@ while not done:
         if rolls[0] == rolls[1]:
             # Rolled a double
             rolls = rolls + rolls
+            # Draw additional dice
+            draw_die(current_player, rolls[0], 2)
+            draw_die(current_player, rolls[0], 3)
         game_state = GameState.PLAYER_SELECT_PIECE
     elif game_state == GameState.PLAYER_SELECT_PIECE:
         if current_player == PLAYER_X:
@@ -498,8 +498,20 @@ while not done:
                                 logging.info(f"Proposed move is considered permitted by game mechanics")
                                 game.board.perform_move(start_pos, move_distance, current_player)
                                 pieces_x, pieces_o, point_tris = draw_board_and_pieces(game.board.x_board,
-                                                                                       game.board.o_board)
-                                game_state = GameState.CHANGE_PLAYER
+                                                                                       game.board.o_board,
+                                                                                       game.board.x_bar,
+                                                                                       game.board.x_removed,
+                                                                                       game.board.o_bar,
+                                                                                       game.board.o_removed)
+                                # Remove roll from set of rolls and draw remaining dice
+                                del rolls[rolls.index(move_distance)]
+                                for roll, n in zip(rolls, range(0, len(rolls))):
+                                    draw_die(current_player, roll, n)
+                                # Determine if player can make another move, or if it's next player's turn
+                                if len(rolls) > 0:
+                                    game_state = GameState.PLAYER_SELECT_PIECE
+                                else:
+                                    game_state = GameState.CHANGE_PLAYER
                             else:
                                 logging.info(f"Move is not permitted by game mechanics")
     elif game_state == GameState.CHANGE_PLAYER:
