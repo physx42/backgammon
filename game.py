@@ -40,7 +40,7 @@ class Game:
         self.step += 1
         logging.info(f"Turn {self.step}: Player {self.pID} (externally set)")
 
-    def roll_dice(self) -> List[int]:
+    def _roll_dice(self) -> List[int]:
         rolls = []
         for n in range(0, 2):
             roll = np.random.randint(1, 7)
@@ -52,13 +52,18 @@ class Game:
             rolls.append(roll)
         return rolls
 
+    def generate_starting_board(self, simple_board):
+        self.board = Board(simple_board)
+
     def play_game(self, simple_board):
         start_game_time = time.time()
-        self.board = Board(simple_board)
+        # Generate start board
+        self.generate_starting_board(simple_board)
+        # Start game
         self.choose_first_player()
         while True:
             player_agent = self.players[self.pID]
-            rolls = self.roll_dice()
+            rolls = self._roll_dice()
             logging.info(f"Dice rolls: {rolls}")
             max_move = None
             while len(rolls) > 0:

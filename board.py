@@ -1,14 +1,10 @@
-from colour import Colour
 import numpy as np
 from typing import List, Tuple, Union
-import copy
-from tree import Tree
 import logging
 
 PLAYER_X = 0
 PLAYER_O = 1
 NUM_POINTS = 24
-# NUM_PIECES = 15
 
 
 class Board:
@@ -70,15 +66,15 @@ class Board:
         bar = self.get_bar(player)
         for roll_value in rolls:
             if bar > 0:
-                if self._move_permitted("bar", roll_value, player):
+                if self.move_permitted("bar", roll_value, player):
                     permitted_moves.append(("bar", roll_value))
             else:
                 for p in range(0, NUM_POINTS):
-                    if self._move_permitted(p, roll_value, player):
+                    if self.move_permitted(p, roll_value, player):
                         permitted_moves.append((p, roll_value))
         return permitted_moves
 
-    def _move_permitted(self, start: Union[int, str], roll_value: int, player: int) -> bool:
+    def move_permitted(self, start: Union[int, str], roll_value: int, player: int) -> bool:
         my_board = self.get_board(player)
         their_board = self.get_board(1 - player)
         bar = self.get_bar(player)
