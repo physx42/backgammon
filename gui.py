@@ -29,6 +29,8 @@ PLAYER_O = 1
 COLOUR_O = WHITE
 NAME_O = "White"
 
+AI_THINK_TIME = 3
+
 BAR_INDEX = -1
 HOME_INDEX = 24
 
@@ -60,6 +62,7 @@ class GameState(Enum):
     PLAYER_ROLL_DICE = 10
     PLAYER_SELECT_PIECE = 2
     PLAYER_SELECT_DEST = 3
+    AI_SELECT_MOVE = 13
     CHECK_GAME_END = 12
     CHANGE_PLAYER = 11
     WAIT_X = 4
@@ -69,7 +72,7 @@ class GameState(Enum):
 
 class GameType(Enum):
     PvP = 0
-    PvE = 0
+    PvE = 1
 
 
 class Point:
@@ -305,9 +308,11 @@ def determine_first_player(first_attempt=True) -> int:
     else:
         if x_score > o_score:
             winning_player = PLAYER_X
+            player_name = NAME_X
         else:
             winning_player = PLAYER_O
-        logging.info(f"Player {winning_player} to start the game.")
+            player_name = NAME_O
+        logging.info(f"Player {winning_player} ({player_name}) to start the game.")
         draw_declare_starter(winning_player)
     return winning_player
 
@@ -361,6 +366,37 @@ def draw_exit_button(player: int):
     # Draw buttons for player to control game
     quit = draw_button("Exit", TRI_WIDTH * 13 + W_BORDER * 2, RES_Y * 0.45, TRI_WIDTH * 1.5, RES_Y * 0.03)
     return quit
+
+
+def update_dice_after_move(rolls: List[int], move_used: int):
+    # Remove roll from set of rolls and draw remaining dice
+    del rolls[rolls.index(move_used)]
+    for roll, n in zip(rolls, range(0, len(rolls))):
+        draw_die(current_player, roll, n)
+    return rolls
+
+
+def choose_ai_move(game: Game, rolls: List[int], player: int, ) -> int:
+    possible_moves = game.board.permitted_moves(rolls, player)
+    logging.info(f"AI sees {len(possible_moves)} possible moves: {possible_moves}")
+    current_state = game.board.encode_features(player)
+    max_value = -99999999
+    max_move = None
+    for move in possible_moves:
+        temp_board = copy.deepcopy(game.board)
+        temp_board.perform_move(*move, player)
+        new_state = temp_board.encode_features(player)
+        value = game.players[player].assess_features(new_state)
+        # Find optimal policy. Note that due to randomness of dice rolls, epsilon-greedy is not required.
+        if value > max_value:
+            max_value = value
+            max_move = move
+    if max_move is not None:
+        draw_message("AI thinking...")
+        time.sleep(random.random() * AI_THINK_TIME)
+        game.board.perform_move(*max_move, player)
+        _, distance_moved = max_move
+    return distance_moved
 
 
 # Configure debugging
@@ -428,16 +464,19 @@ while not done:
         # Detect user choice of game type
         for event in all_events:
             if event.type == pygame.MOUSEBUTTONDOWN:
-                if btn_pve.collidepoint(pygame.mouse.get_pos()):
+                if btn_pvp.collidepoint(pygame.mouse.get_pos()):
                     logging.info("Chosen to play a game of PvP")
                     game = Game(HumanAgent(), HumanAgent())
                     game_type = GameType.PvP
                     game_state = GameState.CHOOSE_FIRST_PLAYER
-                elif btn_pvp.collidepoint(pygame.mouse.get_pos()):
+                elif btn_pve.collidepoint(pygame.mouse.get_pos()):
                     logging.info("Chosen to play a game of PvE")
                     game = Game(HumanAgent(), TDagent())
+                    # Load the trained AI brain
+                    game.players[1].load("TDGammon")
                     game_type = GameType.PvE
                     game_state = GameState.CHOOSE_FIRST_PLAYER
+                logging.debug(f"User enabled game type {game_type}")
     elif game_state == GameState.CHOOSE_FIRST_PLAYER:
         btn_quit = None
         # Randomly choose first player by rolling dice
@@ -461,7 +500,12 @@ while not done:
             # Draw additional dice
             draw_die(current_player, rolls[0], 2)
             draw_die(current_player, rolls[0], 3)
-        game_state = GameState.PLAYER_SELECT_PIECE
+        if game_type == GameType.PvP or current_player == PLAYER_X:  # PLAYER_X is always human
+            logging.debug(f"Human to play (game type {game_type})")
+            game_state = GameState.PLAYER_SELECT_PIECE
+        else:
+            logging.debug(f"AI to play (game type {game_type})")
+            game_state = GameState.AI_SELECT_MOVE
     elif game_state == GameState.PLAYER_SELECT_PIECE:
         btn_menu = draw_main_menu_button(current_player)
         if current_player == PLAYER_X:
@@ -532,10 +576,7 @@ while not done:
                                 logging.debug(f"X: {game.board.x_board}, O: {game.board.o_board}")
                                 logging.debug(f"X bar: {game.board.x_bar}, O: {game.board.o_bar}")
                                 logging.debug(f"X bar: {game.board.x_removed}, O: {game.board.o_removed}")
-                                # Remove roll from set of rolls and draw remaining dice
-                                del rolls[rolls.index(move_distance)]
-                                for roll, n in zip(rolls, range(0, len(rolls))):
-                                    draw_die(current_player, roll, n)
+                                rolls = update_dice_after_move(rolls, move_distance)
                                 # Determine if player can make another move, or if it's next player's turn
                                 if len(rolls) > 0:
                                     game_state = GameState.PLAYER_SELECT_PIECE
@@ -544,6 +585,24 @@ while not done:
                             else:
                                 logging.info(f"Move is not permitted by game mechanics")
                         break
+    elif game_state == GameState.AI_SELECT_MOVE:
+        logging.info("AI player given control")
+        # Check if there are any valid moves
+        if len(game.board.permitted_moves(rolls, current_player)) == 0:
+            # Skip to next player
+            draw_message("No valid moves available!")
+            game_state = GameState.CHECK_GAME_END
+        # Let AI look at all possible moves and choose favourite
+        move_distance = choose_ai_move(game, rolls, current_player)
+        # See if rolls remain and go to next player if not
+        # TODO Think there's a bug here as AI doesn't seem to be able to make second move
+        rolls = update_dice_after_move(rolls, move_distance)
+        if len(rolls) > 0:
+            game_state = GameState.AI_SELECT_MOVE
+        else:
+            game_state = GameState.CHECK_GAME_END
+        # Go to next player
+        game_state = GameState.CHECK_GAME_END
     elif game_state == GameState.CHECK_GAME_END:
         # Check to see if the game has ended before passing to next player
         if game.board.game_won(current_player):
