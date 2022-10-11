@@ -11,10 +11,10 @@ class Board:
     def __init__(self, simple_board):
         self.o_board = self.generate_board_list(simple_board)
         self.x_board = self.generate_board_list(simple_board)
-        self.o_bar = 0
-        self.x_bar = 0
-        self.o_removed = 0
-        self.x_removed = 0
+        self.o_bar = 3
+        self.x_bar = 3
+        self.o_removed = 3
+        self.x_removed = 3
         self.o_home_area = 0
         self.x_home_area = 0
 
@@ -46,8 +46,11 @@ class Board:
 
     def generate_board_list(self, simple_board: bool) -> List[int]:
         if simple_board:
-            board = [3, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0]
-            self.num_pieces = 5
+            board = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0]
+            count = 0
+            for b in board:
+                count += b
+            self.num_pieces = count
         else:
             board = [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 3, 0, 5, 0, 0, 0, 0, 0]
             self.num_pieces = 15
@@ -85,6 +88,8 @@ class Board:
                 opp_point_occ = their_board[NUM_POINTS - new_position - 1]
                 return opp_point_occ <= 1  # Can only move off bar if destination is empty or blotted
         else:  # Trying to move a piece not on bar
+            if bar > 0:  # There's a piece on the bar so can't move a non-bar piece
+                return False
             if my_board[start] > 0:  # There is a piece here
                 new_position = start + roll_value
                 if new_position == NUM_POINTS:  # Will be removed from board
