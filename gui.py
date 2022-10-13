@@ -638,7 +638,7 @@ while not done:
                 old_board.x_board[start_pos_player] -= 1  # take the piece away
         else:
             new_board = game.board.o_board
-            if start_pos_player == BAR_INDEX:
+            if start_pos_player == "bar":
                 start_pos_player = BAR_INDEX
                 occupancy_origin = old_board.o_bar
                 old_board.o_bar -= 1
