@@ -83,20 +83,81 @@ class Point:
 
 
 class Piece:
-    def __init__(self, rect, player_point: int, position_at_point: int, player_num: int):
-        self.rect = rect
+    def __init__(self, player_point: int, position_at_point: int, player_num: int):
         self.player_point = player_point
         self.position_at_point = position_at_point
         self.player = player_num
         self.is_selected = False
+        self.x_pos = 0  # draw position
+        self.y_pos = 0  # draw position
+        self.determine_piece_draw_position()
+        self.rect = self.draw_piece()
 
     def select(self):
         self.is_selected = True
-        draw_piece(self.player_point, self.position_at_point, self.player, self.is_selected)
+        self.draw_piece(self.is_selected)
 
     def deselect(self):
         self.is_selected = False
-        draw_piece(self.player_point, self.position_at_point, self.player)
+        self.draw_piece(self.is_selected)
+
+    def determine_piece_draw_position(self):
+        # Determine player-specific attributes
+        if self.player == PLAYER_X:
+            bar_y = RES_Y * 0.9 - (self.position_at_point - 1) * PIECE_RAD / 2
+            home_y = RES_Y * 0.1 + (self.position_at_point - 1) * PIECE_RAD / 2
+        else:
+            bar_y = RES_Y * 0.1 + (self.position_at_point - 1) * PIECE_RAD / 2
+            home_y = RES_Y * 0.9 - (self.position_at_point - 1) * PIECE_RAD / 2
+        # Convert player point numbering to global (i.e. screen space)
+        global_point = convert_coords_to_global(self.player_point, self.player)
+        # Transform position according to special features
+        if self.player_point == BAR_INDEX:
+            # On bar
+            self.y_pos = bar_y
+            self.x_pos = TRI_WIDTH * 6.5 + W_BORDER
+        elif self.player_point == HOME_INDEX:
+            # Removed from board
+            self.y_pos = home_y
+            self.x_pos = TRI_WIDTH * 14 + W_BORDER
+        elif global_point > 11:
+            # In top row
+            if global_point > 17:
+                global_point += 1  # due to spacer
+            self.y_pos = PIECE_RAD * (2 * self.position_at_point - 1) + W_BORDER
+            self.x_pos = TRI_WIDTH / 2.0 * ((global_point - 11) * 2 - 1) + W_BORDER
+        else:
+            # In bottom row
+            if global_point < 6:
+                global_point -= 1
+            self.y_pos = RES_Y - PIECE_RAD * (2 * self.position_at_point - 1) - W_BORDER
+            self.x_pos = TRI_WIDTH / 2.0 * ((12 - global_point) * 2 - 1) + W_BORDER
+        logging.debug(f"x: {self.x_pos}, y: {self.y_pos}")
+
+    def draw_piece(self, is_selected: bool = False, manual_position_x=None, manual_position_y=None) -> pygame.rect:
+        if is_selected:
+            colour = BLUE
+            border_colour = BLACK
+        else:
+            if self.player == PLAYER_X:
+                colour = COLOUR_X
+                border_colour = BLACK
+            else:
+                colour = COLOUR_O
+                border_colour = BLACK
+
+        if manual_position_x is not None:
+            x = manual_position_x
+        else:
+            x = self.x_pos
+        if manual_position_y is not None:
+            y = manual_position_y
+        else:
+            y = self.y_pos
+
+        circle = pygame.draw.circle(screen, colour, [x, y], PIECE_RAD)
+        pygame.draw.circle(screen, border_colour, [x, y], PIECE_RAD, 5)  # border
+        return circle
 
 
 def draw_button(text_string: str, left: Union[float, int], top: Union[float, int], width: Union[float, int], height: Union[float, int]) -> pygame.rect:
@@ -189,54 +250,6 @@ def convert_coords_to_global(player_point: int, player: int) -> int:
     else:
         global_point = 23 - player_point
     return global_point
-
-
-def draw_piece(player_point: int, point_occupancy: int, player: int, is_selected: bool=False) -> pygame.rect:
-    # Determine player-specific attributes
-    if player == PLAYER_X:
-        if is_selected:
-            colour = BLUE
-            border_colour = BLACK
-        else:
-            colour = COLOUR_X
-            border_colour = WHITE
-        bar_y = RES_Y * 0.9 - (point_occupancy - 1) * PIECE_RAD / 2
-        home_y = RES_Y * 0.1 + (point_occupancy - 1) * PIECE_RAD / 2
-    else:
-        if is_selected:
-            colour = BLUE
-            border_colour = BLACK
-        else:
-            colour = COLOUR_O
-            border_colour = RED
-        bar_y = RES_Y * 0.1 + (point_occupancy - 1) * PIECE_RAD / 2
-        home_y = RES_Y * 0.9 - (point_occupancy - 1) * PIECE_RAD / 2
-    # Convert player point numbering to global (i.e. screen space)
-    global_point = convert_coords_to_global(player_point, player)
-    # Transform position according to special features
-    if player_point == BAR_INDEX:
-        # On bar
-        y_pos = bar_y
-        x_pos = TRI_WIDTH * 6.5 + W_BORDER
-    elif player_point == HOME_INDEX:
-        # Removed from board
-        y_pos = home_y
-        x_pos = TRI_WIDTH * 14 + W_BORDER
-    elif global_point > 11:
-        # In top row
-        if global_point > 17:
-            global_point += 1  # due to spacer
-        y_pos = PIECE_RAD * (2 * point_occupancy - 1) + W_BORDER
-        x_pos = TRI_WIDTH / 2.0 * ((global_point - 11) * 2 - 1) + W_BORDER
-    else:
-        # In bottom row
-        if global_point < 6:
-            global_point -= 1
-        y_pos = RES_Y - PIECE_RAD * (2 * point_occupancy - 1) - W_BORDER
-        x_pos = TRI_WIDTH / 2.0 * ((12 - global_point) * 2 - 1) + W_BORDER
-    circle = pygame.draw.circle(screen, colour, [x_pos, y_pos], PIECE_RAD)
-    pygame.draw.circle(screen, border_colour, [x_pos, y_pos], PIECE_RAD, 2)  # border
-    return circle
 
 
 def draw_die(player: int, face_value: int, die_index: int):
@@ -337,11 +350,11 @@ def draw_pieces_for_player(player: int, board: List[int], bar: int, removed: int
     pieces = []
     for p in range(0, len(board)):
         for n in range(0, board[p]):
-            pieces.append(Piece(draw_piece(p, n + 1, player), p, n + 1, player))
+            pieces.append(Piece(p, n + 1, player))
     for n in range(0, bar):
-        pieces.append(Piece(draw_piece(BAR_INDEX, n + 1, player), BAR_INDEX, n + 1, player))
+        pieces.append(Piece(BAR_INDEX, n + 1, player))
     for n in range(0, removed):
-        pieces.append(Piece(draw_piece(HOME_INDEX, n + 1, player), HOME_INDEX, n + 1, player))
+        pieces.append(Piece(HOME_INDEX, n + 1, player))
     return pieces
 
 
