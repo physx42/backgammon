@@ -52,7 +52,7 @@ class Game:
             rolls.append(roll)
         return rolls
 
-    def generate_starting_board(self, simple_board):
+    def generate_starting_board(self, simple_board=False):
         self.board = Board(simple_board)
 
     def play_game(self, simple_board):

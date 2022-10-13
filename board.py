@@ -11,10 +11,10 @@ class Board:
     def __init__(self, simple_board):
         self.o_board = self.generate_board_list(simple_board)
         self.x_board = self.generate_board_list(simple_board)
-        self.o_bar = 3
-        self.x_bar = 3
-        self.o_removed = 3
-        self.x_removed = 3
+        self.o_bar = 0
+        self.x_bar = 0
+        self.o_removed = 0
+        self.x_removed = 0
         self.o_home_area = 0
         self.x_home_area = 0
 

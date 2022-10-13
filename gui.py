@@ -29,13 +29,13 @@ PLAYER_O = 1
 COLOUR_O = WHITE
 NAME_O = "White"
 
-AI_THINK_TIME = 3
+AI_THINK_TIME = 1.5
 
 BAR_INDEX = -1
 HOME_INDEX = 24
 
 # Resolution
-RES_Y = 1000
+RES_Y = 1920
 RES_X = RES_Y / 3 * 4
 
 # Define board dimensions
@@ -472,11 +472,14 @@ while not done:
                 elif btn_pve.collidepoint(pygame.mouse.get_pos()):
                     logging.info("Chosen to play a game of PvE")
                     game = Game(HumanAgent(), TDagent())
-                    # Load the trained AI brain
-                    game.players[1].load("TDGammon")
                     game_type = GameType.PvE
                     game_state = GameState.CHOOSE_FIRST_PLAYER
                 logging.debug(f"User enabled game type {game_type}")
+                # Load the trained AI brain(s)
+                for plyr, n in zip(game.players, range(0, len(game.players))):
+                    if plyr.__class__.__name__ == "TDagent":
+                        logging.info(f"Loading brain for player {n}")
+                        plyr.load("TDGammon")
     elif game_state == GameState.CHOOSE_FIRST_PLAYER:
         btn_quit = None
         # Randomly choose first player by rolling dice
@@ -486,7 +489,7 @@ while not done:
         game_state = GameState.START_GAME
     elif game_state == GameState.START_GAME:
         # Populate initial board
-        game.generate_starting_board(True)
+        game.generate_starting_board()
         pieces_x, pieces_o, point_tris = draw_board_and_pieces(game.board.x_board, game.board.o_board,
                                                                game.board.x_bar, game.board.o_bar,
                                                                game.board.x_removed, game.board.o_removed)
@@ -594,15 +597,23 @@ while not done:
             game_state = GameState.CHECK_GAME_END
         # Let AI look at all possible moves and choose favourite
         move_distance = choose_ai_move(game, rolls, current_player)
-        # See if rolls remain and go to next player if not
-        # TODO Think there's a bug here as AI doesn't seem to be able to make second move
-        rolls = update_dice_after_move(rolls, move_distance)
+        if move_distance is not None:
+            # A valid move was possible, and a move was made, so update board display
+            pieces_x, pieces_o, point_tris = draw_board_and_pieces(game.board.x_board,
+                                                                   game.board.o_board,
+                                                                   game.board.x_bar,
+                                                                   game.board.o_bar,
+                                                                   game.board.x_removed,
+                                                                   game.board.o_removed)
+            # See if rolls remain and go to next player if not
+            rolls = update_dice_after_move(rolls, move_distance)
+        else:
+            # Force rolls remaining to none
+            rolls = []
         if len(rolls) > 0:
             game_state = GameState.AI_SELECT_MOVE
         else:
             game_state = GameState.CHECK_GAME_END
-        # Go to next player
-        game_state = GameState.CHECK_GAME_END
     elif game_state == GameState.CHECK_GAME_END:
         # Check to see if the game has ended before passing to next player
         if game.board.game_won(current_player):
