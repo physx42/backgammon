@@ -369,7 +369,7 @@ def draw_message(text_string: str, long_show=False) -> None:
     time.sleep(MSG_DISPLAY_TIME)
     if long_show:
         # Show message for longer
-        time.sleep(MSG_DISPLAY_TIME)
+        time.sleep(MSG_DISPLAY_TIME * 2)
 
 
 def draw_pieces_for_player(player: int, board: List[int], bar: int, removed: int) -> List[Piece]:
