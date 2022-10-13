@@ -38,6 +38,10 @@ HOME_INDEX = 24
 RES_Y = 1920
 RES_X = RES_Y / 3 * 4
 
+# Animation
+TARGET_FPS = 30
+MOVE_ANIM_FRAMES = 30
+
 # Define board dimensions
 TRI_WIDTH = RES_X / 15.0
 TRI_SPACING = TRI_WIDTH * 2
@@ -63,6 +67,8 @@ class GameState(Enum):
     PLAYER_SELECT_PIECE = 2
     PLAYER_SELECT_DEST = 3
     AI_SELECT_MOVE = 13
+    SETUP_PIECE_ANIM = 15
+    DRAW_PIECE_ANIM = 14
     CHECK_GAME_END = 12
     CHANGE_PLAYER = 11
     WAIT_X = 4
@@ -83,15 +89,13 @@ class Point:
 
 
 class Piece:
-    def __init__(self, player_point: int, position_at_point: int, player_num: int):
+    def __init__(self, player_point: int, position_at_point: int, player_num: int, draw: bool = True):
         self.player_point = player_point
         self.position_at_point = position_at_point
         self.player = player_num
         self.is_selected = False
-        self.x_pos = 0  # draw position
-        self.y_pos = 0  # draw position
-        self.determine_piece_draw_position()
-        self.rect = self.draw_piece()
+        if draw:
+            self.rect = self.draw_piece()
 
     def select(self):
         self.is_selected = True
@@ -114,27 +118,27 @@ class Piece:
         # Transform position according to special features
         if self.player_point == BAR_INDEX:
             # On bar
-            self.y_pos = bar_y
-            self.x_pos = TRI_WIDTH * 6.5 + W_BORDER
+            y_pos = bar_y
+            x_pos = TRI_WIDTH * 6.5 + W_BORDER
         elif self.player_point == HOME_INDEX:
             # Removed from board
-            self.y_pos = home_y
-            self.x_pos = TRI_WIDTH * 14 + W_BORDER
+            y_pos = home_y
+            x_pos = TRI_WIDTH * 14 + W_BORDER
         elif global_point > 11:
             # In top row
             if global_point > 17:
                 global_point += 1  # due to spacer
-            self.y_pos = PIECE_RAD * (2 * self.position_at_point - 1) + W_BORDER
-            self.x_pos = TRI_WIDTH / 2.0 * ((global_point - 11) * 2 - 1) + W_BORDER
+            y_pos = PIECE_RAD * (2 * self.position_at_point - 1) + W_BORDER
+            x_pos = TRI_WIDTH / 2.0 * ((global_point - 11) * 2 - 1) + W_BORDER
         else:
             # In bottom row
             if global_point < 6:
                 global_point -= 1
-            self.y_pos = RES_Y - PIECE_RAD * (2 * self.position_at_point - 1) - W_BORDER
-            self.x_pos = TRI_WIDTH / 2.0 * ((12 - global_point) * 2 - 1) + W_BORDER
-        logging.debug(f"x: {self.x_pos}, y: {self.y_pos}")
+            y_pos = RES_Y - PIECE_RAD * (2 * self.position_at_point - 1) - W_BORDER
+            x_pos = TRI_WIDTH / 2.0 * ((12 - global_point) * 2 - 1) + W_BORDER
+        return x_pos, y_pos
 
-    def draw_piece(self, is_selected: bool = False, manual_position_x=None, manual_position_y=None) -> pygame.rect:
+    def draw_piece(self, is_selected: bool = False, manual_position: Union[None, Tuple[float, float]] = None) -> pygame.rect:
         if is_selected:
             colour = BLUE
             border_colour = BLACK
@@ -146,14 +150,10 @@ class Piece:
                 colour = COLOUR_O
                 border_colour = BLACK
 
-        if manual_position_x is not None:
-            x = manual_position_x
+        if manual_position is None:
+            x, y = self.determine_piece_draw_position()
         else:
-            x = self.x_pos
-        if manual_position_y is not None:
-            y = manual_position_y
-        else:
-            y = self.y_pos
+            x, y = manual_position
 
         circle = pygame.draw.circle(screen, colour, [x, y], PIECE_RAD)
         pygame.draw.circle(screen, border_colour, [x, y], PIECE_RAD, 5)  # border
@@ -300,7 +300,7 @@ def roll_dice(num_die: int, player: int) -> List[int]:
                 if random.random() > elapsed / roll_time[n]:
                     face_value[n] = random.randint(1, 6)
                     draw_die(player, face_value[n], n)
-        clock.tick(10)
+        clock.tick(TARGET_FPS)
     logging.info(f"Value(s) rolled: {' and '.join(str(v) for v in face_value)}")
     return face_value
 
@@ -384,12 +384,15 @@ def draw_exit_button(player: int):
 def update_dice_after_move(rolls: List[int], move_used: int):
     # Remove roll from set of rolls and draw remaining dice
     del rolls[rolls.index(move_used)]
-    for roll, n in zip(rolls, range(0, len(rolls))):
-        draw_die(current_player, roll, n)
     return rolls
 
 
-def choose_ai_move(game: Game, rolls: List[int], player: int, ) -> Union[int, None]:
+def redraw_dice(rolls: List[int], player: int):
+    for roll, n in zip(rolls, range(0, len(rolls))):
+        draw_die(player, roll, n)
+
+
+def choose_ai_move(game: Game, rolls: List[int], player: int, ) -> Tuple[Union[int, None], Union[int, None]]:
     possible_moves = game.board.permitted_moves(rolls, player)
     logging.info(f"AI sees {len(possible_moves)} possible moves: {possible_moves}")
     current_state = game.board.encode_features(player)
@@ -408,11 +411,12 @@ def choose_ai_move(game: Game, rolls: List[int], player: int, ) -> Union[int, No
         draw_message("AI thinking...")
         time.sleep(random.random() * AI_THINK_TIME)
         game.board.perform_move(*max_move, player)
-        _, distance_moved = max_move
+        moved_from, distance_moved = max_move
     else:
         # No move was made (i.e. no valid moves)
         distance_moved = None
-    return distance_moved
+        moved_from = None
+    return moved_from, distance_moved
 
 
 # Configure debugging
@@ -585,22 +589,10 @@ while not done:
                                 start_pos_player = "bar"  # convert to board.Board() implementation
                             if game.board.move_permitted(start_pos_player, move_distance, current_player):
                                 logging.info(f"Proposed move is considered permitted by game mechanics")
+                                old_board = copy.deepcopy(game.board)
                                 game.board.perform_move(start_pos_player, move_distance, current_player)
-                                pieces_x, pieces_o, point_tris = draw_board_and_pieces(game.board.x_board,
-                                                                                       game.board.o_board,
-                                                                                       game.board.x_bar,
-                                                                                       game.board.o_bar,
-                                                                                       game.board.x_removed,
-                                                                                       game.board.o_removed)
-                                logging.debug(f"X: {game.board.x_board}, O: {game.board.o_board}")
-                                logging.debug(f"X bar: {game.board.x_bar}, O: {game.board.o_bar}")
-                                logging.debug(f"X bar: {game.board.x_removed}, O: {game.board.o_removed}")
                                 rolls = update_dice_after_move(rolls, move_distance)
-                                # Determine if player can make another move, or if it's next player's turn
-                                if len(rolls) > 0:
-                                    game_state = GameState.PLAYER_SELECT_PIECE
-                                else:
-                                    game_state = GameState.CHECK_GAME_END
+                                game_state = GameState.SETUP_PIECE_ANIM
                             else:
                                 logging.info(f"Move is not permitted by game mechanics")
                         break
@@ -612,34 +604,67 @@ while not done:
             draw_message("No valid moves available!")
             game_state = GameState.CHECK_GAME_END
         # Let AI look at all possible moves and choose favourite
-        move_distance = choose_ai_move(game, rolls, current_player)
+        start_pos_player, move_distance = choose_ai_move(game, rolls, current_player)
         if move_distance is not None:
-            # A valid move was possible, and a move was made, so update board display
-            pieces_x, pieces_o, point_tris = draw_board_and_pieces(game.board.x_board,
-                                                                   game.board.o_board,
-                                                                   game.board.x_bar,
-                                                                   game.board.o_bar,
-                                                                   game.board.x_removed,
-                                                                   game.board.o_removed)
+            # A valid move was possible, and a move was made
+            old_board = copy.deepcopy(game.board)
             # See if rolls remain and go to next player if not
             rolls = update_dice_after_move(rolls, move_distance)
+            game_state = GameState.SETUP_PIECE_ANIM
         else:
             # Force rolls remaining to none
             rolls = []
-        if len(rolls) > 0:
-            game_state = GameState.AI_SELECT_MOVE
+    elif game_state == GameState.SETUP_PIECE_ANIM:
+        if current_player == PLAYER_X:
+            new_board = game.board.x_board
+            occupancy_origin = old_board.x_board[start_pos_player]
+            old_board.x_board[start_pos_player] -= 1  # take the piece away
         else:
+            new_board = game.board.o_board
+            occupancy_origin = old_board.o_board[start_pos_player]
+            old_board.o_board[start_pos_player] -= 1  # take the piece away
+        occupancy_dest = new_board[start_pos_player + move_distance]
+        draw_board_and_pieces(old_board.x_board, old_board.o_board, old_board.x_bar, old_board.o_bar,
+                              old_board.x_removed, old_board.o_removed)
+        piece_origin = Piece(start_pos_player, occupancy_origin, current_player, draw=False)
+        piece_dest = Piece(start_pos_player + move_distance, occupancy_dest, current_player, draw=False)
+        x_origin, y_origin = piece_origin.determine_piece_draw_position()
+        x_dest, y_dest = piece_dest.determine_piece_draw_position()
+        anim_frame = 0
+        game_state = GameState.DRAW_PIECE_ANIM
+        logging.debug(f"{x_origin} to {x_dest} and {y_origin} to {y_dest}")
+    elif game_state == GameState.DRAW_PIECE_ANIM:
+        x_draw = (x_dest - x_origin) / MOVE_ANIM_FRAMES * anim_frame + x_origin
+        y_draw = (y_dest - y_origin) / MOVE_ANIM_FRAMES * anim_frame + y_origin
+        anim_frame += 1
+        logging.debug(f"Anim frame {anim_frame}: {x_draw}, {y_draw}")
+        piece_dest.draw_piece(manual_position=(x_draw, y_draw))
+        if anim_frame < MOVE_ANIM_FRAMES:
+            # Continue animation
+            game_state = GameState.DRAW_PIECE_ANIM
+        elif len(rolls) > 0:
+            # Continue player turn
+            pieces_x, pieces_o, point_tris = draw_board_and_pieces(game.board.x_board, game.board.o_board,
+                                  game.board.x_bar, game.board.o_bar,
+                                  game.board.x_removed, game.board.o_removed)
+            redraw_dice(rolls, current_player)
+            if game.players[current_player].__class__.__name__ == "TDagent":
+                game_state = GameState.AI_SELECT_MOVE
+            else:
+                game_state = GameState.PLAYER_SELECT_PIECE
+        else:
+            # Player turn ended
             game_state = GameState.CHECK_GAME_END
     elif game_state == GameState.CHECK_GAME_END:
         # Check to see if the game has ended before passing to next player
+        pieces_x, pieces_o, point_tris = draw_board_and_pieces(game.board.x_board, game.board.o_board,
+                                                               game.board.x_bar, game.board.o_bar,
+                                                               game.board.x_removed, game.board.o_removed)
         if game.board.game_won(current_player):
             if current_player == PLAYER_X:
                 player_name = NAME_X
             else:
                 player_name = NAME_O
-            draw_board_and_pieces(game.board.x_board, game.board.o_board,
-                                  game.board.x_bar, game.board.o_bar,
-                                  game.board.x_removed, game.board.o_removed)
             draw_message(f"{player_name} has won the game!")
             game_state = GameState.WELCOME
         else:
@@ -647,9 +672,9 @@ while not done:
     elif game_state == GameState.CHANGE_PLAYER:
         current_player = 1 - current_player
         game.set_player(current_player)
-        draw_board_and_pieces(game.board.x_board, game.board.o_board,
-                              game.board.x_bar, game.board.o_bar,
-                              game.board.x_removed, game.board.o_removed)
+        # draw_board_and_pieces(game.board.x_board, game.board.o_board,
+        #                       game.board.x_bar, game.board.o_bar,
+        #                       game.board.x_removed, game.board.o_removed)
         game_state = GameState.PLAYER_ROLL_DICE
 
     elif game_state == GameState.NEW_BOARD:
@@ -664,7 +689,7 @@ while not done:
 
     # Update the screen
     pygame.display.update()
-    clock.tick(30)
+    clock.tick(TARGET_FPS)
 
 
 
