@@ -376,7 +376,7 @@ def update_dice_after_move(rolls: List[int], move_used: int):
     return rolls
 
 
-def choose_ai_move(game: Game, rolls: List[int], player: int, ) -> int:
+def choose_ai_move(game: Game, rolls: List[int], player: int, ) -> Union[int, None]:
     possible_moves = game.board.permitted_moves(rolls, player)
     logging.info(f"AI sees {len(possible_moves)} possible moves: {possible_moves}")
     current_state = game.board.encode_features(player)
@@ -396,6 +396,9 @@ def choose_ai_move(game: Game, rolls: List[int], player: int, ) -> int:
         time.sleep(random.random() * AI_THINK_TIME)
         game.board.perform_move(*max_move, player)
         _, distance_moved = max_move
+    else:
+        # No move was made (i.e. no valid moves)
+        distance_moved = None
     return distance_moved
 
 
