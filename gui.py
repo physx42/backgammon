@@ -420,7 +420,7 @@ def choose_ai_move(game: Game, rolls: List[int], player: int, ) -> Tuple[Union[i
 
 
 # Configure debugging
-logging.basicConfig(level=logging.DEBUG, format="%(message)s")
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 # Initialise pygame viewport
 pygame.init()
@@ -604,10 +604,10 @@ while not done:
             draw_message("No valid moves available!")
             game_state = GameState.CHECK_GAME_END
         # Let AI look at all possible moves and choose favourite
+        old_board = copy.deepcopy(game.board)
         start_pos_player, move_distance = choose_ai_move(game, rolls, current_player)
         if move_distance is not None:
             # A valid move was possible, and a move was made
-            old_board = copy.deepcopy(game.board)
             # See if rolls remain and go to next player if not
             rolls = update_dice_after_move(rolls, move_distance)
             game_state = GameState.SETUP_PIECE_ANIM
@@ -615,14 +615,25 @@ while not done:
             # Force rolls remaining to none
             rolls = []
     elif game_state == GameState.SETUP_PIECE_ANIM:
+        logging.debug(f" Start pos player: {start_pos_player}")
         if current_player == PLAYER_X:
             new_board = game.board.x_board
-            occupancy_origin = old_board.x_board[start_pos_player]
-            old_board.x_board[start_pos_player] -= 1  # take the piece away
+            if start_pos_player == "bar":
+                start_pos_player = BAR_INDEX
+                occupancy_origin = old_board.x_bar
+                old_board.x_bar -= 1
+            else:
+                occupancy_origin = old_board.x_board[start_pos_player]
+                old_board.x_board[start_pos_player] -= 1  # take the piece away
         else:
             new_board = game.board.o_board
-            occupancy_origin = old_board.o_board[start_pos_player]
-            old_board.o_board[start_pos_player] -= 1  # take the piece away
+            if start_pos_player == BAR_INDEX:
+                start_pos_player = BAR_INDEX
+                occupancy_origin = old_board.o_bar
+                old_board.o_bar -= 1
+            else:
+                occupancy_origin = old_board.o_board[start_pos_player]
+                old_board.o_board[start_pos_player] -= 1  # take the piece away
         occupancy_dest = new_board[start_pos_player + move_distance]
         draw_board_and_pieces(old_board.x_board, old_board.o_board, old_board.x_bar, old_board.o_bar,
                               old_board.x_removed, old_board.o_removed)
@@ -638,6 +649,8 @@ while not done:
         y_draw = (y_dest - y_origin) / MOVE_ANIM_FRAMES * anim_frame + y_origin
         anim_frame += 1
         logging.debug(f"Anim frame {anim_frame}: {x_draw}, {y_draw}")
+        draw_board_and_pieces(old_board.x_board, old_board.o_board, old_board.x_bar, old_board.o_bar,
+                              old_board.x_removed, old_board.o_removed)
         piece_dest.draw_piece(manual_position=(x_draw, y_draw))
         if anim_frame < MOVE_ANIM_FRAMES:
             # Continue animation
