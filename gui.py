@@ -40,7 +40,7 @@ RES_X = RES_Y / 3 * 4
 
 # Animation
 TARGET_FPS = 30
-MOVE_ANIM_FRAMES = 10
+MOVE_ANIM_FRAMES = 30
 DICE_ROLL_TIME_RANGE = 1
 
 # Define board dimensions
@@ -54,7 +54,7 @@ W_BORDER = TRI_WIDTH / 4  # border width
 START_BOARD = [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 3, 0, 5, 0, 0, 0, 0, 0]
 
 # Miscellaneous
-MSG_DISPLAY_TIME = 2
+MSG_DISPLAY_TIME = 1.5
 
 
 # Enums
@@ -78,8 +78,9 @@ class GameState(Enum):
 
 
 class GameType(Enum):
-    PvP = 0
-    PvE = 1
+    Undefined = 0
+    PvP = 1
+    PvE = 2
 
 
 class Point:
@@ -288,7 +289,7 @@ def roll_dice(num_die: int, player: int) -> List[int]:
     roll_time = []
     for n in range(0, num_die):
         # Choose random amount of time for the die to take to settle
-        roll_time.append(1 + random.random() * DICE_ROLL_TIME_RANGE)
+        roll_time.append(0.5 + random.random() * DICE_ROLL_TIME_RANGE)
 
     start_time = time.time()
     dice_stopped = [False] * num_die
@@ -296,6 +297,21 @@ def roll_dice(num_die: int, player: int) -> List[int]:
     face_value = [0] * num_die
     done = False
     clock = pygame.time.Clock()
+    # Random choice of sound effect
+    rnd = random.randint(1, 6)
+    if rnd == 1:
+        pygame.mixer.Sound("sound/zapsplat_leisure_board_game_dice_throw_roll_on_playing_board_001_37257.mp3").play()
+    elif rnd == 2:
+        pygame.mixer.Sound("sound/zapsplat_leisure_board_game_dice_throw_roll_on_playing_board_002_37258.mp3").play()
+    elif rnd == 3:
+        pygame.mixer.Sound("sound/zapsplat_leisure_board_game_dice_throw_roll_on_playing_board_003_37259.mp3").play()
+    elif rnd == 4:
+        pygame.mixer.Sound("sound/zapsplat_leisure_board_game_dice_throw_roll_on_playing_board_004_37260.mp3").play()
+    elif rnd == 5:
+        pygame.mixer.Sound("sound/zapsplat_leisure_board_game_dice_throw_roll_on_playing_board_005_37261.mp3").play()
+    elif rnd == 6:
+        pygame.mixer.Sound("sound/zapsplat_leisure_board_game_dice_throw_roll_on_playing_board_006_37262.mp3").play()
+    # Run animation
     while num_stopped < num_die or done:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -349,12 +365,15 @@ def draw_declare_starter(player: int) -> None:
     draw_message(f"{player_name} to start the game!")
 
 
-def draw_message(text_string: str) -> None:
+def draw_message(text_string: str, long_show=False) -> None:
     font = pygame.font.SysFont(None, int(RES_Y / 10))
     text = font.render(text_string, True, WHITE)
     screen.blit(text, [TRI_WIDTH * 2, RES_Y * 0.45])
     pygame.display.update()
     time.sleep(MSG_DISPLAY_TIME)
+    if long_show:
+        # Show message for longer
+        time.sleep(MSG_DISPLAY_TIME)
 
 
 def draw_pieces_for_player(player: int, board: List[int], bar: int, removed: int) -> List[Piece]:
@@ -370,7 +389,6 @@ def draw_pieces_for_player(player: int, board: List[int], bar: int, removed: int
 
 
 def draw_board_and_pieces(board_x: List[int], board_o: List[int], bar_x: int, bar_o: int, removed_x: int, removed_o: int):
-    logging.info(f"Drawing board and pieces")
     # Draw empty board
     triangles = draw_board()
     # Populate pieces according to starting boards
@@ -430,6 +448,17 @@ def choose_ai_move(game: Game, rolls: List[int], player: int, ) -> Tuple[Union[i
     return moved_from, distance_moved
 
 
+def play_piece_move_sound():
+    rnd = random.randint(1, 3)
+    if rnd == 1:
+        pygame.mixer.Sound("sound/household_aftershave_bottle_scrape_across_table_1.mp3").play()
+    elif rnd == 2:
+        pygame.mixer.Sound("sound/household_aftershave_bottle_scrape_across_table_2.mp3").play()
+    elif rnd == 3:
+        pygame.mixer.Sound("sound/household_aftershave_bottle_scrape_across_table_3.mp3").play()
+
+
+
 # Configure debugging
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
@@ -445,6 +474,7 @@ game_state = GameState.WELCOME
 done = False
 press_enter = False
 game = None
+game_type = GameType.Undefined
 btn_menu = None
 current_player = 0
 selected_piece = 0
@@ -505,12 +535,14 @@ while not done:
                     game = Game(HumanAgent(), TDagent())
                     game_type = GameType.PvE
                     game_state = GameState.CHOOSE_FIRST_PLAYER
-                logging.debug(f"User enabled game type {game_type}")
-                # Load the trained AI brain(s)
-                for plyr, n in zip(game.players, range(0, len(game.players))):
-                    if plyr.__class__.__name__ == "TDagent":
-                        logging.info(f"Loading brain for player {n}")
-                        plyr.load("TDGammon")
+                if game_type != GameType.Undefined:
+                    logging.debug(f"User enabled game type {game_type}")
+                    # Load the trained AI brain(s)
+                    for plyr, n in zip(game.players, range(0, len(game.players))):
+                        if plyr.__class__.__name__ == "TDagent":
+                            logging.info(f"Loading brain for player {n}")
+                            plyr.load("TDGammon")
+                    break
     elif game_state == GameState.CHOOSE_FIRST_PLAYER:
         btn_quit = None
         # Randomly choose first player by rolling dice
@@ -520,7 +552,7 @@ while not done:
         game_state = GameState.START_GAME
     elif game_state == GameState.START_GAME:
         # Populate initial board
-        game.generate_starting_board()
+        game.generate_starting_board(True)
         pieces_x, pieces_o, point_tris = draw_board_and_pieces(game.board.x_board, game.board.o_board,
                                                                game.board.x_bar, game.board.o_bar,
                                                                game.board.x_removed, game.board.o_removed)
@@ -627,8 +659,8 @@ while not done:
             rolls = []
     elif game_state == GameState.SETUP_PIECE_ANIM:
         logging.debug(f" Start pos player: {start_pos_player}")
+        new_board = game.board
         if current_player == PLAYER_X:
-            new_board = game.board.x_board
             if start_pos_player == "bar":
                 start_pos_player = BAR_INDEX
                 occupancy_origin = old_board.x_bar
@@ -636,8 +668,11 @@ while not done:
             else:
                 occupancy_origin = old_board.x_board[start_pos_player]
                 old_board.x_board[start_pos_player] -= 1  # take the piece away
+            if start_pos_player + move_distance == HOME_INDEX:
+                occupancy_dest = new_board.x_removed
+            else:
+                occupancy_dest = new_board.x_board[start_pos_player + move_distance]
         else:
-            new_board = game.board.o_board
             if start_pos_player == "bar":
                 start_pos_player = BAR_INDEX
                 occupancy_origin = old_board.o_bar
@@ -645,7 +680,10 @@ while not done:
             else:
                 occupancy_origin = old_board.o_board[start_pos_player]
                 old_board.o_board[start_pos_player] -= 1  # take the piece away
-        occupancy_dest = new_board[start_pos_player + move_distance]
+            if start_pos_player + move_distance == HOME_INDEX:
+                occupancy_dest = new_board.o_removed
+            else:
+                occupancy_dest = new_board.o_board[start_pos_player + move_distance]
         draw_board_and_pieces(old_board.x_board, old_board.o_board, old_board.x_bar, old_board.o_bar,
                               old_board.x_removed, old_board.o_removed)
         piece_origin = Piece(start_pos_player, occupancy_origin, current_player, draw=False)
@@ -655,6 +693,7 @@ while not done:
         anim_frame = 0
         game_state = GameState.DRAW_PIECE_ANIM
         logging.debug(f"{x_origin} to {x_dest} and {y_origin} to {y_dest}")
+        play_piece_move_sound()
     elif game_state == GameState.DRAW_PIECE_ANIM:
         x_draw = (x_dest - x_origin) / MOVE_ANIM_FRAMES * anim_frame + x_origin
         y_draw = (y_dest - y_origin) / MOVE_ANIM_FRAMES * anim_frame + y_origin
@@ -689,23 +728,18 @@ while not done:
                 player_name = NAME_X
             else:
                 player_name = NAME_O
-            draw_message(f"{player_name} has won the game!")
+            if game.players[current_player].__class__.__name__ == "HumanAgent":
+                pygame.mixer.Sound("sound/sound_ex_machina_Applause,+Clapping,+Crowd+Ambience.mp3").play()
+            elif game.players[current_player].__class__.__name__ == "TDagent":
+                pygame.mixer.Sound("sound/").play()
+            draw_message(f"{player_name} has won the game!", long_show=True)
             game_state = GameState.WELCOME
         else:
             game_state = GameState.CHANGE_PLAYER
     elif game_state == GameState.CHANGE_PLAYER:
         current_player = 1 - current_player
         game.set_player(current_player)
-        # draw_board_and_pieces(game.board.x_board, game.board.o_board,
-        #                       game.board.x_bar, game.board.o_bar,
-        #                       game.board.x_removed, game.board.o_removed)
         game_state = GameState.PLAYER_ROLL_DICE
-
-    elif game_state == GameState.NEW_BOARD:
-        # Draw empty board
-        draw_board()
-        # Draw pieces
-
     else:
         # Default state
         logging.error(f"Unrecognised game state: {game_state}.")
