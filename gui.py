@@ -40,7 +40,8 @@ RES_X = RES_Y / 3 * 4
 
 # Animation
 TARGET_FPS = 30
-MOVE_ANIM_FRAMES = 30
+MOVE_ANIM_FRAMES = 10
+DICE_ROLL_TIME_RANGE = 1
 
 # Define board dimensions
 TRI_WIDTH = RES_X / 15.0
@@ -263,11 +264,21 @@ def draw_die(player: int, face_value: int, die_index: int):
     # Die size
     width = TRI_WIDTH / 2
     # Draw cube surface
-    face = pygame.draw.rect(screen, colour, [center[0] - width/2, center[1] - width/2, width, width])
+    pygame.draw.rect(screen, colour, [center[0] - width/2, center[1] - width/2, width, width])
     # Show face value
-    font = pygame.font.SysFont(None, int(RES_Y / 20))
-    text = font.render(str(face_value), True, BLACK)
-    screen.blit(text, face)
+    dot_gap = width / 4
+    dot_size = RES_Y / 200
+    if 2 <= face_value <= 6:
+        pygame.draw.circle(screen, BLACK, [center[0] - dot_gap, center[1] - dot_gap], dot_size)  # top left
+        pygame.draw.circle(screen, BLACK, [center[0] + dot_gap, center[1] + dot_gap], dot_size)  # bottom right
+    if 4 <= face_value <= 6:
+        pygame.draw.circle(screen, BLACK, [center[0] + dot_gap, center[1] - dot_gap], dot_size)  # top right
+        pygame.draw.circle(screen, BLACK, [center[0] - dot_gap, center[1] + dot_gap], dot_size)  # bottom left
+    if face_value == 1 or face_value == 3 or face_value == 5:
+        pygame.draw.circle(screen, BLACK, [center[0], center[1]], dot_size)  # center
+    if face_value == 6:
+        pygame.draw.circle(screen, BLACK, [center[0] - dot_gap, center[1]], dot_size)  # mid left
+        pygame.draw.circle(screen, BLACK, [center[0] + dot_gap, center[1]], dot_size)  # mid right
     # Update display
     pygame.display.update()
 
@@ -277,7 +288,7 @@ def roll_dice(num_die: int, player: int) -> List[int]:
     roll_time = []
     for n in range(0, num_die):
         # Choose random amount of time for the die to take to settle
-        roll_time.append(1 + random.random() * 1)
+        roll_time.append(1 + random.random() * DICE_ROLL_TIME_RANGE)
 
     start_time = time.time()
     dice_stopped = [False] * num_die
