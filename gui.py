@@ -29,7 +29,6 @@ PLAYER_O = 1
 COLOUR_O = WHITE
 NAME_O = "White"
 
-AI_THINK_TIME = 1.5
 
 BAR_INDEX = -1
 HOME_INDEX = 24
@@ -42,6 +41,8 @@ RES_X = RES_Y / 3 * 4
 TARGET_FPS = 30
 MOVE_ANIM_FRAMES = 30
 DICE_ROLL_TIME_RANGE = 1
+AI_THINK_TIME = 1
+MSG_DISPLAY_TIME = 1.5
 
 # Define board dimensions
 TRI_WIDTH = RES_X / 15.0
@@ -50,11 +51,6 @@ TRI_HEIGHT = RES_Y / 2.5
 PIECE_RAD = TRI_WIDTH / 2.5
 W_BORDER = TRI_WIDTH / 4  # border width
 
-# Define start board
-START_BOARD = [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 3, 0, 5, 0, 0, 0, 0, 0]
-
-# Miscellaneous
-MSG_DISPLAY_TIME = 1.5
 
 
 # Enums
@@ -731,7 +727,7 @@ while not done:
             if game.players[current_player].__class__.__name__ == "HumanAgent":
                 pygame.mixer.Sound("sound/sound_ex_machina_Applause,+Clapping,+Crowd+Ambience.mp3").play()
             elif game.players[current_player].__class__.__name__ == "TDagent":
-                pygame.mixer.Sound("sound/").play()
+                pygame.mixer.Sound("sound/zapsplat_science_fiction_robot_big_glitch_44020.mp3").play()
             draw_message(f"{player_name} has won the game!", long_show=True)
             game_state = GameState.WELCOME
         else:
