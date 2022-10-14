@@ -548,7 +548,7 @@ while not done:
         game_state = GameState.START_GAME
     elif game_state == GameState.START_GAME:
         # Populate initial board
-        game.generate_starting_board(True)
+        game.generate_starting_board(False)
         pieces_x, pieces_o, point_tris = draw_board_and_pieces(game.board.x_board, game.board.o_board,
                                                                game.board.x_bar, game.board.o_bar,
                                                                game.board.x_removed, game.board.o_removed)
