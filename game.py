@@ -120,6 +120,7 @@ class Game:
                 break
             else:
                 self.next_player()
+        return total_game_time
 
 
 if __name__ == '__main__':
@@ -148,8 +149,10 @@ if __name__ == '__main__':
 
     g = Game(common_TD_agent, common_TD_agent)
     g_test = Game(common_TD_agent, RandomAgent())
+    last_ten_ep_lengths = [0] * 10
     for episode in range(1, num_training_episodes + 1):
-        g.play_game(use_simple_board)
+        episode_length = g.play_game(use_simple_board)
+        last_ten_ep_lengths = last_ten_ep_lengths[1:] + [episode_length]
         if episode % checkpoint_period == 0 and episode > 1:
             print("Saving checkpoint")
             if use_simple_board:
@@ -162,6 +165,12 @@ if __name__ == '__main__':
                 g_test.play_game(use_simple_board)
             print("Resuming training.")
             common_TD_agent.enable_learning()
+        if episode % 10 == 0 and episode > 1 and num_test_episodes == 0:
+            # Give estimate of time to complete
+            remaining_episodes = num_training_episodes - episode
+            remaining_time = remaining_episodes * np.average(last_ten_ep_lengths)
+            print(f"Estimated time to complete: {remaining_time / 60:.2f} mins")
+
 
     train_win_history = copy.deepcopy(g.win_history)
     train_len_history = copy.deepcopy(g.game_len_history)
