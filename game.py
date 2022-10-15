@@ -52,13 +52,13 @@ class Game:
             rolls.append(roll)
         return rolls
 
-    def generate_starting_board(self, simple_board=False):
-        self.board = Board(simple_board)
+    def generate_starting_board(self, endgame_board=False):
+        self.board = Board(endgame_board)
 
-    def play_game(self, simple_board):
+    def play_game(self, endgame_board):
         start_game_time = time.time()
         # Generate start board
-        self.generate_starting_board(simple_board)
+        self.generate_starting_board(endgame_board)
         # Start game
         self.choose_first_player()
         while True:
@@ -128,14 +128,14 @@ if __name__ == '__main__':
     common_TD_agent = TDagent(0.1, 0.7, 196)
 
     # Ask what board configuration to use
-    response = input("Use full backgammon board (y/n)?: ")
-    use_simple_board = (str(response).upper() == "N")
+    response = input("Use endgame backgammon starting board (y/n)?: ")
+    use_endgame_board = (str(response).upper() == "Y")
     # Offer to load existing model
     response = input("Do you want to load a checkpoint (y/n): ")
     if str(response).upper() == "Y":
         # response = input("Specify checkpoint name (TDGammon): ")
-        if use_simple_board:
-            common_TD_agent.load("TDGammon_simple")
+        if use_endgame_board:
+            common_TD_agent.load("TDGammon_endgame")
         else:
             common_TD_agent.load("TDGammon")
 
@@ -144,25 +144,25 @@ if __name__ == '__main__':
     num_training_episodes = int(response)
     response = input("How often to save checkpoints: ")
     checkpoint_period = int(response)
-    response = input("How many test episodes: ")
+    response = input("How many test episodes per checkpoint: ")
     num_test_episodes = int(response)
 
     g = Game(common_TD_agent, common_TD_agent)
     g_test = Game(common_TD_agent, RandomAgent())
-    last_ten_ep_lengths = [0] * 10
+    last_ten_ep_lengths = [0.0] * 10
     for episode in range(1, num_training_episodes + 1):
-        episode_length = g.play_game(use_simple_board)
+        episode_length = g.play_game(use_endgame_board)
         last_ten_ep_lengths = last_ten_ep_lengths[1:] + [episode_length]
         if episode % checkpoint_period == 0 and episode > 1:
             print("Saving checkpoint")
-            if use_simple_board:
+            if use_endgame_board:
                 common_TD_agent.save("TDGammon_simple")
             else:
                 common_TD_agent.save("TDGammon")
             print("Starting test phase versus RandomAgent(). Learning disabled.")
             common_TD_agent.disable_learning()
             for test_episode in range(0, num_test_episodes):
-                g_test.play_game(use_simple_board)
+                g_test.play_game(use_endgame_board)
             print("Resuming training.")
             common_TD_agent.enable_learning()
         if episode % 10 == 0 and episode > 1 and num_test_episodes == 0:

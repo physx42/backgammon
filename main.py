@@ -11,7 +11,7 @@ if __name__ == '__main__':
 
     for episode in range(0, 100):
         print(f"--------- BEGIN EPISODE {episode} -----------")
-        b = Board(debug_print=False, simple_board=True)
+        b = Board(debug_print=False, endgame_board=True)
         b.choose_first_player()
 
         while True:
