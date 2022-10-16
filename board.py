@@ -9,14 +9,11 @@ NUM_POINTS = 24
 
 class Board:
     def __init__(self, endgame_board):
-        self.o_board = self.generate_board_list(endgame_board)
-        self.x_board = self.generate_board_list(endgame_board)
-        self.o_bar = 0
-        self.x_bar = 0
+        self.num_pieces = 0
+        self.o_board, self.o_bar = self.generate_board_list(endgame_board)
+        self.x_board, self.x_bar = self.generate_board_list(endgame_board)
         self.o_removed = 0
         self.x_removed = 0
-        self.o_home_area = 0
-        self.x_home_area = 0
 
     def get_bar(self, player: int) -> int:
         if player == PLAYER_X:
@@ -44,17 +41,25 @@ class Board:
         else:
             self.o_board[index] += delta
 
-    def generate_board_list(self, endgame_board: bool) -> List[int]:
+    def generate_board_list(self, endgame_board: bool) -> Tuple[List[int], int]:
         if endgame_board:
-            board = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0]
-            count = 0
-            for b in board:
-                count += b
-            self.num_pieces = count
+            remaining = 15
+            board = [0] * 24
+            # Only have pieces in opponent's home half
+            for n in range(15, 23):
+                this_point = np.random.randint(0, min(np.random.randint(1, 6), remaining) + 1)
+                remaining -= this_point
+                board[n] = this_point
+            # board = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0]
+            board[0] = min(2, remaining)
+            bar = max(remaining - board[0], 0)
+            self.num_pieces = 15
+            print(board)
         else:
             board = [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 3, 0, 5, 0, 0, 0, 0, 0]
+            bar = 0
             self.num_pieces = 15
-        return board
+        return board, bar
 
     def _can_bear_off(self, board: List[int], bar: int) -> bool:
         can_bear_off = (bar == 0)
@@ -108,8 +113,6 @@ class Board:
     def perform_move(self, position: int, roll: int, player: int):
         my_board = self.get_board(player)
         their_board = self.get_board(1 - player)
-        my_bar = self.get_bar(player)
-        their_bar = self.get_bar(1 - player)
         # Lift piece from start position
         if position == "bar":
             self.adjust_bar(player, -1)
@@ -132,10 +135,6 @@ class Board:
                 # their_board[opp_position] -= 1
                 self.set_board(1 - player, opp_position, -1)
                 self.adjust_bar(1 - player, +1)
-                # if player == PLAYER_X:
-                #     self.o_bar += 1
-                # else:
-                #     self.x_bar += 1
                 logging.info(f"Piece taken by player {player} at point {new_position} (player's own coords).  bar={self.x_bar},{self.o_bar}")
 
     def encode_features(self, player: int):

@@ -134,10 +134,11 @@ if __name__ == '__main__':
     response = input("Do you want to load a checkpoint (y/n): ")
     if str(response).upper() == "Y":
         # response = input("Specify checkpoint name (TDGammon): ")
-        if use_endgame_board:
-            common_TD_agent.load("TDGammon_endgame")
-        else:
-            common_TD_agent.load("TDGammon")
+        # if use_endgame_board:
+        #     common_TD_agent.load("TDGammon_endgame")
+        # else:
+        #     common_TD_agent.load("TDGammon")
+        common_TD_agent.load("TDGammon")
 
     # Ask for length
     response = input("How many training episodes: ")
@@ -155,10 +156,11 @@ if __name__ == '__main__':
         last_ten_ep_lengths = last_ten_ep_lengths[1:] + [episode_length]
         if episode % checkpoint_period == 0 and episode > 1:
             print("Saving checkpoint")
-            if use_endgame_board:
-                common_TD_agent.save("TDGammon_simple")
-            else:
-                common_TD_agent.save("TDGammon")
+            common_TD_agent.save("TDGammon")
+            # if use_endgame_board:
+            #     common_TD_agent.save("TDGammon_simple")
+            # else:
+            #     common_TD_agent.save("TDGammon")
             print("Starting test phase versus RandomAgent(). Learning disabled.")
             common_TD_agent.disable_learning()
             for test_episode in range(0, num_test_episodes):
