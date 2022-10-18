@@ -428,7 +428,8 @@ def choose_ai_move(g: Game, dice_rolls: List[int], player: int) -> List[Tuple[in
     return best_moves
 
 
-def ai_move_tree_analysis(agent: TDagent, current_board: Board, available_rolls: List[int], player: int, prior_moves: List[Tuple[int, int]]) -> Tuple[float, List[Tuple[int, int]]]:
+def ai_move_tree_analysis(agent: TDagent, current_board: Board, available_rolls: List[int], player: int,
+                          prior_moves: List[Tuple[int, int]]) -> Tuple[float, List[Tuple[int, int]]]:
     logging.debug(f"AI looking for moves subsequent to prior moves {prior_moves}")
     possible_moves = current_board.permitted_moves(available_rolls, player)
     if len(possible_moves) == 0:
@@ -664,11 +665,6 @@ while not done:
 
     elif game_state == GameState.AI_SELECT_MOVE:
         logging.info("AI player given control")
-        # # Check if there are any valid moves
-        # if len(game.board.permitted_moves(rolls, current_player)) == 0:
-        #     # Skip to next player
-        #     draw_message("No valid moves available!")
-        #     game_state = GameState.CHECK_GAME_END
         # Let AI look at all possible moves and choose favourite
         if len(ai_move_list) == 0:
             # Just started AI move so need to work out list of moves

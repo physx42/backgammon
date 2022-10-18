@@ -1,6 +1,6 @@
 # game
 import copy
-from typing import List
+from typing import List, Tuple
 from board import Board
 from TDGammon_agent import TDagent
 from random_agent import RandomAgent
@@ -55,7 +55,7 @@ class Game:
     def generate_starting_board(self, endgame_board=False):
         self.board = Board(endgame_board)
 
-    def play_game(self, endgame_board):
+    def training_game(self, endgame_board: bool) -> float:
         start_game_time = time.time()
         # Generate start board
         self.generate_starting_board(endgame_board)
@@ -122,6 +122,71 @@ class Game:
                 self.next_player()
         return total_game_time
 
+    def testing_game(self, endgame_board: bool) -> float:
+        start_game_time = time.time()
+        # Generate start board
+        self.generate_starting_board(endgame_board)
+        # Start game
+        self.choose_first_player()
+        while True:
+            player_agent = self.players[self.pID]
+            rolls = self._roll_dice()
+            logging.info(f"Player {self.pID} rolls dice: {rolls}")
+            # max_move = None
+            best_value, best_moves = self.move_tree_analysis(player_agent, self.board, rolls, [])
+            for move in best_moves:
+                logging.debug(f"Moves planned by AI: {best_moves} from dice rolls {rolls}")
+                old_board = copy.deepcopy(self.board)
+                start_pos_player, move_distance = move
+                logging.debug(
+                    f"AI now performing move (with anim): piece at {start_pos_player}, moving {move_distance} pips")
+                self.board.perform_move(start_pos_player, move_distance, self.pID)
+                del rolls[rolls.index(move_distance)]
+                logging.debug(f"Rolls left after this move: {rolls}")
+            if self.board.game_won(self.pID):
+                logging.info(f"Game won by player {self.pID}")
+                break
+
+            else:
+                self.next_player()
+
+
+    def move_tree_analysis(self, agent, current_board: Board, available_rolls: List[int], prior_moves: List[Tuple[int, int]]):
+        logging.debug(f"AI looking for moves subsequent to prior moves {prior_moves}")
+        possible_moves = current_board.permitted_moves(available_rolls, self.pID)
+        if len(possible_moves) == 0:
+            # No valid moves, so return current state
+            logging.debug(f"AI found no valid moves with remaining dice rolls ({available_rolls}")
+            new_state = current_board.encode_features(self.pID)
+            value = agent.assess_features(new_state)
+            return value, prior_moves
+        else:
+            # At least one valid move to look at
+            logging.debug(f"AI examining subsequent moves: {possible_moves}")
+            max_value = -np.inf
+            max_branch = None
+            for move in possible_moves:
+                temp_board = copy.deepcopy(current_board)
+                temp_board.perform_move(*move, self.pID)
+                remaining_rolls = [available_rolls[i] for i in range(len(available_rolls)) if
+                                   i != available_rolls.index(move[1])]
+                extant_moves = prior_moves + [move]
+                if len(remaining_rolls) > 0:
+                    # Still got rolls to do
+                    best_subsequent_value, best_subsequent_move_tree = \
+                        self.move_tree_analysis(agent, temp_board, remaining_rolls, extant_moves)
+                    if best_subsequent_value > max_value:
+                        max_value = best_subsequent_value
+                        max_branch = best_subsequent_move_tree
+                else:
+                    new_state = temp_board.encode_features(self.pID)
+                    value = agent.assess_features(new_state)
+                    if value > max_value:
+                        max_value = value
+                        max_branch = extant_moves
+            logging.debug(f"AI's best board found so far with score {max_value} on branch {max_branch}")
+            return max_value, max_branch
+
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.WARN, format="%(message)s")
@@ -152,7 +217,7 @@ if __name__ == '__main__':
     g_test = Game(common_TD_agent, RandomAgent())
     last_ten_ep_lengths = [0.0] * 10
     for episode in range(1, num_training_episodes + 1):
-        episode_length = g.play_game(use_endgame_board)
+        episode_length = g.training_game(use_endgame_board)
         last_ten_ep_lengths = last_ten_ep_lengths[1:] + [episode_length]
         if episode % checkpoint_period == 0 and episode > 1:
             print("Saving checkpoint")
@@ -164,7 +229,7 @@ if __name__ == '__main__':
             print("Starting test phase versus RandomAgent(). Learning disabled.")
             common_TD_agent.disable_learning()
             for test_episode in range(0, num_test_episodes):
-                g_test.play_game(use_endgame_board)
+                g_test.training_game(use_endgame_board)
             print("Resuming training.")
             common_TD_agent.enable_learning()
         if episode % 10 == 0 and episode > 1 and num_test_episodes == 0:
