@@ -66,28 +66,39 @@ class Game:
             player_agent = self.players[self.pID]
             rolls = self._roll_dice()
             logging.info(f"Player {self.pID} rolls dice: {rolls}")
-            # max_move = None
             old_board = copy.deepcopy(self.board)
-            best_value, best_moves = self.move_tree_analysis(player_agent, self.board, rolls, [])
-            for move in best_moves:
-                logging.debug(f"Moves planned by AI: {best_moves} from dice rolls {rolls}")
-                start_pos_player, move_distance = move
-                logging.debug(
-                    f"AI now performing move (with anim): piece at {start_pos_player}, moving {move_distance} pips")
-                self.board.perform_move(start_pos_player, move_distance, self.pID)
-                del rolls[rolls.index(move_distance)]
-                logging.debug(f"Rolls left after this move: {rolls}")
-
+            while len(rolls) > 0:
+                permitted_moves = self.board.permitted_moves(rolls, self.pID)
+                logging.info(f"{len(permitted_moves)} possible moves: {permitted_moves}")
+                max_value = -np.inf
+                max_move = None
+                for move in permitted_moves:
+                    temp_board = copy.deepcopy(self.board)
+                    temp_board.perform_move(*move, self.pID)
+                    new_state = temp_board.encode_features(self.pID)
+                    value = player_agent.assess_features(new_state)
+                    # Find optimal policy. Note that due to randomness of dice rolls, epsilon-greedy is not required.
+                    if value > max_value:
+                        max_value = value
+                        max_move = move
+                if max_move is not None:
+                    self.board.perform_move(*max_move, self.pID)
+                    if self.board.game_won(self.pID):
+                        reward = 1
+                        break
+                    else:
+                        reward = 0
+                    del rolls[rolls.index(max_move[1])]
+                else:
+                    reward = 0
+                    break
             prev_state = old_board.encode_features(self.pID)
             new_state = self.board.encode_features(self.pID)
-            if self.board.game_won(self.pID):
-                # Game won
-                reward = 1
+            player_agent.update_model(prev_state, new_state, reward, episode_end=(reward == 1))
+            if reward == 1:
+                break
             else:
-                reward = 0
                 self.next_player()
-
-            player_agent.update_model(prev_state, new_state, reward, episode_end=(reward==1))
 
         # Game ended
         logging.info(f"Player {self.pID} won!")
@@ -102,32 +113,6 @@ class Game:
               f"Win ratio: {self.win_history[-1]:.4f}")
 
         return total_game_time
-
-    def testing_game(self, endgame_board: bool) -> float:
-        # Generate start board
-        self.generate_starting_board(endgame_board)
-        # Start game
-        self.choose_first_player()
-        while True:
-            player_agent = self.players[self.pID]
-            rolls = self._roll_dice()
-            logging.info(f"Player {self.pID} rolls dice: {rolls}")
-            # max_move = None
-            best_value, best_moves = self.move_tree_analysis(player_agent, self.board, rolls, [])
-            for move in best_moves:
-                logging.debug(f"Moves planned by AI: {best_moves} from dice rolls {rolls}")
-                start_pos_player, move_distance = move
-                logging.debug(
-                    f"AI now performing move (with anim): piece at {start_pos_player}, moving {move_distance} pips")
-                self.board.perform_move(start_pos_player, move_distance, self.pID)
-                del rolls[rolls.index(move_distance)]
-                logging.debug(f"Rolls left after this move: {rolls}")
-            if self.board.game_won(self.pID):
-                logging.info(f"Game won by player {self.pID}")
-                break
-
-            else:
-                self.next_player()
 
     def move_tree_analysis(self, agent, current_board: Board, available_rolls: List[int], prior_moves: List[Tuple[int, int]]):
         logging.debug(f"AI looking for moves subsequent to prior moves {prior_moves}")
@@ -190,6 +175,8 @@ if __name__ == '__main__':
     checkpoint_period = int(response)
     response = input("How many test episodes per checkpoint: ")
     num_test_episodes = int(response)
+    response = input("Allow learning during test rounds? (y/n): ")
+    test_training = str(response).upper() == "Y"
 
     g = Game(common_TD_agent, common_TD_agent)
     g_test = Game(common_TD_agent, RandomAgent())
@@ -205,11 +192,13 @@ if __name__ == '__main__':
             # else:
             #     common_TD_agent.save("TDGammon")
             print("Starting test phase versus RandomAgent(). Learning disabled.")
-            common_TD_agent.disable_learning()
+            if not test_training:
+                common_TD_agent.disable_learning()
             for test_episode in range(0, num_test_episodes):
                 g_test.training_game(use_endgame_board)
             print("Resuming training.")
-            common_TD_agent.enable_learning()
+            if not test_training:
+                common_TD_agent.enable_learning()
         if episode % 10 == 0 and episode > 1 and num_test_episodes == 0:
             # Give estimate of time to complete
             remaining_episodes = num_training_episodes - episode
