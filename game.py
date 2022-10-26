@@ -61,69 +61,49 @@ class Game:
         self.generate_starting_board(endgame_board)
         # Start game
         self.choose_first_player()
-        while True:
+        reward = 0
+        while reward == 0:
             player_agent = self.players[self.pID]
             rolls = self._roll_dice()
-            logging.info(f"Dice rolls: {rolls}")
-            max_move = None
-            while len(rolls) > 0:
-                logging.debug(f"Unused rolls: {rolls}")
-                move_search_time = time.time()
-                permitted_moves = self.board.permitted_moves(rolls, self.pID)
-                logging.debug(f"Move search took {time.time() - move_search_time} seconds.")
-                logging.info(f"{len(permitted_moves)} possible moves: {permitted_moves}")
-                current_state = self.board.encode_features(self.pID)
-                max_value = -np.inf
-                max_move = None
-                move_eval_time = time.time()
-                for move in permitted_moves:
-                    temp_board = copy.deepcopy(self.board)
-                    temp_board.perform_move(*move, self.pID)
-                    new_state = temp_board.encode_features(self.pID)
-                    value = player_agent.assess_features(new_state)
-                    # Find optimal policy. Note that due to randomness of dice rolls, epsilon-greedy is not required.
-                    if value > max_value:
-                        max_value = value
-                        max_move = move
-                logging.debug(f"Move evaluation took {move_eval_time - time.time()} seconds")
-                if max_move is not None:
-                    self.board.perform_move(*max_move, self.pID)
-                    logging.debug(f"Board state: X: (b{self.board.x_bar}){self.board.x_board}(r{self.board.x_removed}),"
-                                  f" O: (b{self.board.o_bar}){self.board.o_board} ({self.board.o_removed}). ")
-                    if self.board.game_won(self.pID):
-                        reward = 1
-                        episode_end = True
-                        break
-                    else:
-                        reward = 0
-                        episode_end = False
-                    player_agent.update_model(current_state, new_state, reward, episode_end)
-                    del rolls[rolls.index(max_move[1])]
-                else:
-                    reward = 0
-                    episode_end = False
-                    break  # Couldn't make a move so go to next player
-                new_state = self.board.encode_features(self.pID)
+            logging.info(f"Player {self.pID} rolls dice: {rolls}")
+            # max_move = None
+            old_board = copy.deepcopy(self.board)
+            best_value, best_moves = self.move_tree_analysis(player_agent, self.board, rolls, [])
+            for move in best_moves:
+                logging.debug(f"Moves planned by AI: {best_moves} from dice rolls {rolls}")
+                start_pos_player, move_distance = move
+                logging.debug(
+                    f"AI now performing move (with anim): piece at {start_pos_player}, moving {move_distance} pips")
+                self.board.perform_move(start_pos_player, move_distance, self.pID)
+                del rolls[rolls.index(move_distance)]
+                logging.debug(f"Rolls left after this move: {rolls}")
 
-            if reward == 1:
-                # Game ended
-                logging.info(f"Player {self.pID} won!")
-                self.game_count += 1
-                self.win_counts[self.pID] += 1
-                self.win_history.append(self.win_counts[0] / (self.win_counts[0] + self.win_counts[1]))
-                self.game_len_history.append(self.step)
-                total_game_time = time.time() - start_game_time
-                steps_per_second = self.step / total_game_time
-                print(f"Game: {self.game_count}\tSteps: {self.step}\tElapsed:{total_game_time:.4f}s\t"
-                      f"Steps per sec:{steps_per_second:.1f}\tWinner: Player {self.pID}\t"
-                      f"Win ratio: {self.win_history[-1]:.4f}")
-                break
+            prev_state = old_board.encode_features(self.pID)
+            new_state = self.board.encode_features(self.pID)
+            if self.board.game_won(self.pID):
+                # Game won
+                reward = 1
             else:
+                reward = 0
                 self.next_player()
+
+            player_agent.update_model(prev_state, new_state, reward, episode_end=(reward==1))
+
+        # Game ended
+        logging.info(f"Player {self.pID} won!")
+        self.game_count += 1
+        self.win_counts[self.pID] += 1
+        self.win_history.append(self.win_counts[0] / (self.win_counts[0] + self.win_counts[1]))
+        self.game_len_history.append(self.step)
+        total_game_time = time.time() - start_game_time
+        steps_per_second = self.step / total_game_time
+        print(f"Game: {self.game_count}\tSteps: {self.step}\tElapsed:{total_game_time:.4f}s\t"
+              f"Steps per sec:{steps_per_second:.1f}\tWinner: Player {self.pID}\t"
+              f"Win ratio: {self.win_history[-1]:.4f}")
+
         return total_game_time
 
     def testing_game(self, endgame_board: bool) -> float:
-        start_game_time = time.time()
         # Generate start board
         self.generate_starting_board(endgame_board)
         # Start game
@@ -136,7 +116,6 @@ class Game:
             best_value, best_moves = self.move_tree_analysis(player_agent, self.board, rolls, [])
             for move in best_moves:
                 logging.debug(f"Moves planned by AI: {best_moves} from dice rolls {rolls}")
-                old_board = copy.deepcopy(self.board)
                 start_pos_player, move_distance = move
                 logging.debug(
                     f"AI now performing move (with anim): piece at {start_pos_player}, moving {move_distance} pips")
@@ -149,7 +128,6 @@ class Game:
 
             else:
                 self.next_player()
-
 
     def move_tree_analysis(self, agent, current_board: Board, available_rolls: List[int], prior_moves: List[Tuple[int, int]]):
         logging.debug(f"AI looking for moves subsequent to prior moves {prior_moves}")
